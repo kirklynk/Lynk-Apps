@@ -1,0 +1,16 @@
+﻿@page "/"
+@attribute [Authorize]
+
+<PageTitle>Home</PageTitle>
+
+<MudPaper Elevation="0" >
+    <MudBreadcrumbs Items="@([new BreadcrumbItem("", href: "/", icon: Icons.Material.Filled.Home)])"></MudBreadcrumbs>
+    <MudText Style="font-size: 20px; padding-left: 10px;">My Files</MudText>
+    <p>&nbsp;</p>
+</MudPaper>
+<MudStack Spacing="2" Row="true" Style="margin-bottom: 1rem;">
+    <MudFab Color="Color.Default" StartIcon="@Icons.Material.Filled.CreateNewFolder" Label="Favorites" />
+    <MudFab Color="Color.Default" StartIcon="@Icons.Material.Filled.UploadFile" Label="Upload Files" />
+</MudStack>
+<AllFiles />
+

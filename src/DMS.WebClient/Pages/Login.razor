@@ -1,0 +1,46 @@
+﻿@page "/login"
+@layout AuthenticationLayout
+
+@attribute [AllowAnonymous]
+
+
+<EditForm Model="_loginRequest" OnValidSubmit="HandleValidSubmit">
+    <DataAnnotationsValidator />
+    <div style="max-width: 400px; width: 100%; margin: 2rem auto;">
+        <MudCard>
+            <MudCardHeader>
+                <MudText Typo="Typo.h5" Style="text-align: center; width: 100%;">Login to your account</MudText>
+            </MudCardHeader>
+            <MudCardContent>
+
+                <MudTextField Label="Email" Class="mt-3" Variant="MudBlazor.Variant.Outlined"
+                              @bind-Value="_loginRequest.Email" For="@(() => _loginRequest.Email)" />
+                <MudTextField Label="Password" HelperText="Choose a strong password" Class="mt-3" Variant="MudBlazor.Variant.Outlined"
+                              @bind-Value="_loginRequest.Password" For="@(() => _loginRequest.Password)" InputType="InputType.Password" />
+            </MudCardContent>
+            <MudCardActions>
+                <MudButton ButtonType="MudBlazor.ButtonType.Submit" Variant="MudBlazor.Variant.Filled" Color="Color.Primary" Class="ml-auto">Login</MudButton>
+            </MudCardActions>
+        </MudCard>
+    </div>
+</EditForm>
+
+@code {
+    private LoginRequest _loginRequest = new();
+
+    [SupplyParameterFromQuery]
+    public string? ReturnUrl { get; set; }
+
+    private async Task HandleValidSubmit()
+    {
+        var result = await _accountManagement.LoginAsync(_loginRequest);
+        if (result)
+        {
+            _navigationManager.NavigateTo(ReturnUrl ?? "/", true);
+        }
+        else
+        {
+            // Handle failed login
+        }
+    }
+}

@@ -1,0 +1,24 @@
+@GatewayService_HostAddress = https://localhost:7121
+
+GET {{GatewayService_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
+POST {{GatewayService_HostAddress}}/login
+Content-Type: application/json
+{
+  "email": "testuser@email.com",
+  "password": "P@ssw0rd!",
+  "twoFactorCode":"thisis"
+}
+
+###
+POST {{GatewayService_HostAddress}}/register
+Content-Type: application/json
+{
+  "email":"kirklynk@gmail.com",
+  "password":"Passw0rd!"
+}
+
+###
+GET {{GatewayService_HostAddress}}/api/documents

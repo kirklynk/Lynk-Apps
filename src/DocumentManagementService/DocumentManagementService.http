@@ -1,0 +1,12 @@
+@DocumentManagementService_HostAddress = https://localhost:7255
+
+GET {{DocumentManagementService_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
+
+POST {{DocumentManagementService_HostAddress}}/api/CC2A839C-C7A7-4770-AFB9-AAD4054CEA31/folders
+content-type: application/json
+{
+  "name":"Documents"
+}

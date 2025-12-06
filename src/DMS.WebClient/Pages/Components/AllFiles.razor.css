@@ -1,0 +1,23 @@
+﻿
+/* For virtualized grids, it's essential that all rows have the same known height */
+::deep .quickgrid tbody tr {
+    height: 30px;
+    border-bottom: 0.5px solid silver;
+}
+
+::deep .quickgrid {
+    width: 100%;
+}
+
+    ::deep .quickgrid .col-title {
+        gap: 0.4rem; /* Separate the sort indicator from title text */
+        font-weight: bold;
+        text-transform: uppercase;
+    }
+
+.grid {
+    height: 300px;
+}
+
+@media only screen and (max-width: 1024px) and (max-height: 768px) {
+}

@@ -1,0 +1,8 @@
+﻿@code {
+    override protected void OnInitialized()
+    {
+        string returnUrl = Uri.EscapeDataString(_navigationManager.ToBaseRelativePath(_navigationManager.Uri));
+        returnUrl = string.IsNullOrWhiteSpace(returnUrl) ? "/" : returnUrl;
+        _navigationManager.NavigateTo($"/login?returnUrl={returnUrl}");
+    }
+}
