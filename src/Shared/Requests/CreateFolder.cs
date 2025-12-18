@@ -5,7 +5,7 @@ using System.Text;
 
 namespace Shared.Requests
 {
-    public class CreateFolder
+    public class CreateContainer
     {
         [Required(ErrorMessage ="Name is required.")]
         public string Name { get; set; }

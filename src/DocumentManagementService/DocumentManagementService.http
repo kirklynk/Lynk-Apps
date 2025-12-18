@@ -5,7 +5,7 @@ Accept: application/json
 
 ###
 
-POST {{DocumentManagementService_HostAddress}}/api/CC2A839C-C7A7-4770-AFB9-AAD4054CEA31/folders
+POST {{DocumentManagementService_HostAddress}}/api/CC2A839C-C7A7-4770-AFB9-AAD4054CEA31/Containers
 content-type: application/json
 {
   "name":"Documents"

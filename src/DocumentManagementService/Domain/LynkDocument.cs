@@ -6,14 +6,20 @@ namespace DocumentManagementService.Domain
     {
         public Guid Id { get; set; }
 
-        public Guid? FolderId { get; set; }
+        public Guid? ContainerId { get; set; }
         public ICollection<Tag> Tags { get; set; } = [];
 
-        public LynkFolder? Folder { get; set; }
+        public virtual LynkContainer? Container { get; set; }
 
         [Required]
         public Guid SubscriptionId { get; set; }
 
         public DateTime? ModifiedOn { get; set; }
+
+        public DateTime? DeletedOn { get;  set; }
+
+        public bool IsDeleted { get; set; } = false;
+
+        public string? Location { get; set; }
     }
 }

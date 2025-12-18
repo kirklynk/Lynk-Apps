@@ -1,0 +1,193 @@
+﻿@using System.Dynamic
+@inject IHttpClientFactory _factory
+
+<div style="margin-bottom: .5rem;">
+    <MudMenu Style="padding: 0.5rem; width: 100%;" AnchorOrigin="Origin.CenterLeft" Color="Color.Primary">
+        <ActivatorContent>
+            <MudFab Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" Size="Size.Small" Label="New" />
+        </ActivatorContent>
+        <ChildContent>
+            <MudMenuItem Label="New Container" Icon="@Icons.Material.Filled.Folder" OnClick="OpenNewContainerDialogAsync" />
+            <MudMenuItem Label="Upload files" Icon="@Icons.Material.Filled.UploadFile" OnClick="OpenUploadDialogAsync" />
+        </ChildContent>
+    </MudMenu>
+    <MudFileUpload T="IBrowserFile" @ref="_fileUploader" FilesChanged="OnFilesChangedAsync"></MudFileUpload>
+</div>
+<div>
+    <MudDataGrid T="DocumentInfo" Bordered="false" FixedHeader="true" Virtualize="true" Outlined="false" ItemSize="20.0f" SortMode="SortMode.Single" Loading="@_isLoading" Height="500px" RowClass="row" VirtualizeServerData="GetDataAsync" RowClick="RowClicked" @ref="_dataGrid">
+        <Columns>
+            <TemplateColumn CellStyle="width: 24px;">
+                <CellTemplate>
+                    @if (context.Item.IsContainer)
+                    {
+                        <img src="images/folder.svg" alt="Container" style="width:24px;height:24px;" />
+                    }
+                    else
+                    {
+                        <img src="images/document.svg" alt="Document" style="width:24px;height:24px;" />
+                    }
+                </CellTemplate>
+            </TemplateColumn>
+            <PropertyColumn Property="x => x.Name" SortBy="x => x.IsContainer" />
+            <PropertyColumn Property="x => x.ModifiedOn" SortBy="x => x.IsContainer" />
+            <TemplateColumn CellStyle="width: 24px;">
+                <CellTemplate>
+                    <MudMenu AnchorOrigin="Origin.CenterLeft" Color="Color.Primary">
+                        <ActivatorContent>
+                            <MudIconButton Icon="@Icons.Material.Filled.MoreVert" Color="Color.Inherit" Edge="Edge.End" />
+                        </ActivatorContent>
+                        <ChildContent>
+                            <MudMenuItem Label="Delete" Icon="@Icons.Material.Filled.Delete" OnClick="@(async () => await DeleteAsync(context.Item.Id))" />
+                            <MudMenuItem Label="Rename" Icon="@Icons.Material.Filled.TextFields" />
+                        </ChildContent>
+                    </MudMenu>
+                </CellTemplate>
+            </TemplateColumn>
+        </Columns>
+        <NoRecordsContent>
+            <MudStack Justify="Justify.Center" AlignItems="AlignItems.Center">
+                There is no content.
+            </MudStack>
+        </NoRecordsContent>
+    </MudDataGrid>
+</div>
+
+@code {
+
+    [Parameter]
+    public Guid? ContainerId { private get; set; }
+
+    [CascadingParameter(Name = "SubscriptionId")]
+    public Guid SubscriptionId { get; set; }
+
+    MudFileUpload<IBrowserFile>? _fileUploader;
+    MudDataGrid<DocumentInfo>? _dataGrid;
+    bool _isLoading = true;
+
+    IJSObjectReference uploader;
+    DotNetObjectReference<ContentList>? objRef;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            uploader ??= await _jsRuntime.InvokeAsync<IJSObjectReference>("import", "./upload.js");
+            objRef ??= DotNetObjectReference.Create(this);
+        }
+    }
+
+    async Task RowClicked(DataGridRowClickEventArgs<DocumentInfo> args)
+    {
+        var item = args.Item;
+        // Handle the row click event, e.g., navigate to the file details page
+        if (item.IsContainer)
+        {
+            // Navigate to Container view
+            _navigationManager.NavigateTo($"/view/1/{item.Id}");
+        }
+        else
+        {
+            // Open or download the file
+        }
+    }
+
+    public async Task RefreshAsync(Guid containerId)
+    {
+        ContainerId = containerId;
+        if (_dataGrid != null)
+        {
+            await _dataGrid.ReloadServerData();
+            StateHasChanged();
+        }
+    }
+
+    async Task<GridData<DocumentInfo>> GetDataAsync(GridStateVirtualize<DocumentInfo> request, CancellationToken token)
+    {
+        _isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+
+            var sort = request.SortDefinitions.FirstOrDefault();
+
+            var query = await _fileProvider.QueryAsync(SubscriptionId, ContainerId, request.StartIndex, request.Count, search: null, orderBy: sort?.SortBy, descending: sort?.Descending ?? false, cancellationToken: token);
+
+            return new GridData<DocumentInfo>
+            {
+                Items = query.Items ?? [],
+                TotalItems = query.TotalCount
+            };
+        }
+        catch (Exception ex)
+        {
+
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+
+        return new GridData<DocumentInfo>
+        {
+            Items = [],
+            TotalItems = 0
+        };
+    }
+
+    async Task OpenNewContainerDialogAsync()
+    {
+        var result = await _dialogService.ShowAsync<NewContainerForm>("New Container",
+            new DialogParameters<NewContainerForm>() { { x => x.SubscriptionId, SubscriptionId }, { x => x.ContainerId, ContainerId } },
+            new DialogOptions
+            {
+                CloseOnEscapeKey = true,
+                NoHeader = true,
+                FullWidth = true,
+                MaxWidth = MaxWidth.Small,
+                Position = DialogPosition.Center
+            });
+
+        var fileDetails = await result.GetReturnValueAsync<DocumentInfo>();
+        if (fileDetails != null)
+        {
+            if (_dataGrid != null)
+            {
+                await _dataGrid.ReloadServerData();
+                StateHasChanged();
+            }
+        }
+    }
+
+    async Task DeleteAsync(Guid item)
+    {
+        await _fileProvider.DeleteAsync(SubscriptionId, item);
+        if (_dataGrid != null)
+        {
+            await _dataGrid.ReloadServerData();
+        }
+    }
+
+    private async Task OpenUploadDialogAsync(MouseEventArgs args)
+    {
+        await (_fileUploader?.OpenFilePickerAsync() ?? Task.CompletedTask);
+    }
+
+    private async Task OnFilesChangedAsync(IBrowserFile file)
+    {
+        var httpClient = _factory.CreateClient("backend");
+        var uploadUrl = new Uri(httpClient.BaseAddress, $"/dms/api/{SubscriptionId}/documents/upload/stream");
+
+        await uploader.InvokeVoidAsync("uploadStream", file, uploadUrl, ContainerId, objRef);
+    }
+
+    [JSInvokable("onUploadCompleted")]
+    public async Task OnUploadCompleteAsync()
+    {
+        if (_dataGrid != null)
+        {
+            await _dataGrid.ReloadServerData();
+        }
+    }
+}

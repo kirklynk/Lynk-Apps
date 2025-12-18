@@ -2,7 +2,7 @@
 
 namespace DocumentManagementService.ViewModels
 {
-    public class FolderViewModel
+    public class ContainerViewModel
     {
         public Guid Id { get; set; }
 

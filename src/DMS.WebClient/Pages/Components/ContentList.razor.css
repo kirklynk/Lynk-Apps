@@ -21,3 +21,8 @@
 
 @media only screen and (max-width: 1024px) and (max-height: 768px) {
 }
+
+.row:hover {
+    background-color: #f0f0f0;
+    cursor: grab;
+}

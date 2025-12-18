@@ -1,0 +1,112 @@
+﻿@page "/trash"
+@inject ILogger<TrashCan> _logger
+
+<MudPaper Elevation="0" Style="margin-bottom: 5px;">
+    <MudBreadcrumbs Items="@([new BreadcrumbItem("", href: "/", icon: Icons.Material.Filled.Home)])"></MudBreadcrumbs>
+    <MudText Style="font-size: 20px; padding-left: 10px;">Recycle bin</MudText>
+</MudPaper>
+<div>
+    <MudDataGrid T="DocumentInfo" Bordered="false" FixedHeader="true" Virtualize="true" Outlined="false" ItemSize="20.0f" SortMode="SortMode.Single" Loading="@_isLoading" Height="500px" RowClass="row" VirtualizeServerData="GetDataAsync" @ref="_dataGrid">
+        <Columns>
+            <TemplateColumn CellStyle="width: 24px;">
+                <CellTemplate>
+                    @if (context.Item.IsContainer)
+                    {
+                        <img src="images/folder.svg" alt="Container" style="width:24px;height:24px;" />
+                    }
+                    else
+                    {
+                        <img src="images/document.svg" alt="Document" style="width:24px;height:24px;" />
+                    }
+                </CellTemplate>
+            </TemplateColumn>
+            <PropertyColumn Property="x => x.Name" SortBy="x => x.IsContainer" />
+            <PropertyColumn Property="x => x.DeletedOn" SortBy="x => x.IsContainer" />
+            <TemplateColumn CellStyle="width: 24px;">
+                <CellTemplate>
+                    <MudMenu AnchorOrigin="Origin.CenterLeft" Color="Color.Primary">
+                        <ActivatorContent>
+                            <MudIconButton Icon="@Icons.Material.Filled.MoreVert" Color="Color.Inherit" Edge="Edge.End" />
+                        </ActivatorContent>
+                        <ChildContent>
+                            <MudMenuItem Label="Restore" Icon="@Icons.Material.Filled.Restore" OnClick="@(async () => await RestoreAsync(context.Item.Id))"  />
+
+                        </ChildContent>
+                    </MudMenu>
+                </CellTemplate>
+            </TemplateColumn>
+        </Columns>
+        <NoRecordsContent>
+            <MudStack Justify="Justify.Center" AlignItems="AlignItems.Center">
+                There is no content.
+            </MudStack>
+        </NoRecordsContent>
+    </MudDataGrid>
+</div>
+@code {
+
+    [CascadingParameter(Name = "SubscriptionId")]
+    public Guid SubscriptionId { get; set; }
+
+    MudDataGrid<DocumentInfo>? _dataGrid;
+    bool _isLoading = true;
+
+    async Task<GridData<DocumentInfo>> GetDataAsync(GridStateVirtualize<DocumentInfo> request, CancellationToken token)
+    {
+        _isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+
+            var sort = request.SortDefinitions.FirstOrDefault();
+
+            var query = await _fileProvider.QueryDeletedAsync(SubscriptionId, skip: request.StartIndex, take: request.Count, orderBy: sort?.SortBy, descending: sort != null ? !sort.Descending : false);
+
+            return new GridData<DocumentInfo>
+            {
+                Items = query.Items ?? [],
+                TotalItems = query.TotalCount
+            };
+        }
+        catch (Exception ex)
+        {
+
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+
+        return new GridData<DocumentInfo>
+        {
+            Items = [],
+            TotalItems = 0
+        };
+    }
+
+    async Task RestoreAsync(Guid documentId)
+    {
+        _isLoading = true;
+        StateHasChanged();
+        try
+        {
+            _logger.LogInformation("Restoring document {DocumentId} in subscription {SubscriptionId}", documentId, SubscriptionId);
+
+            await _fileProvider.RestoreAsync(SubscriptionId, documentId);
+            if (_dataGrid != null)
+            {
+                await _dataGrid.ReloadServerData();
+            }
+        }
+        catch (Exception ex)
+        {
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+}

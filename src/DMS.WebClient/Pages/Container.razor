@@ -3,16 +3,15 @@
 <MudPaper Elevation="0" Style="margin-bottom: 5px;">
     <MudBreadcrumbs Items="_items"></MudBreadcrumbs>
     <MudText Style="font-size: 20px; padding-left: 10px;">@_fileDetails?.Name</MudText>
-    <p>&nbsp;</p>
 </MudPaper>
 
-<AllFiles FolderId="@Id" @ref="_allFiles" />
+<ContentList ContainerId="@Id" @ref="_allFiles" />
 
 @code {
 
-    List<BreadcrumbItem> _items = [];
-
-    AllFiles? _allFiles;
+    List<BreadcrumbItem> _items = new List<BreadcrumbItem> { new BreadcrumbItem("", href: "/", icon: Icons.Material.Filled.Home) };
+    
+    ContentList? _allFiles;
 
     [Parameter]
     public Guid Id { get; set; }
@@ -21,15 +20,10 @@
     public Guid SubscriptionId { get; set; }
 
     bool _rendered = false;
+    DocumentInfo? _fileDetails;
 
     protected override async Task OnParametersSetAsync()
     {
-        if (_rendered)
-        {
-            if (_allFiles != null)
-                await _allFiles.RefreshAsync(Id);
-
-        }
         try
         {
             if (Id != Guid.Empty)
@@ -53,6 +47,14 @@
         {
             throw;
         }
+
+        if (_rendered)
+        {
+            if (_allFiles != null)
+                await _allFiles.RefreshAsync(Id);
+
+        }
+       
         StateHasChanged();
     }
 
@@ -63,7 +65,4 @@
             _rendered = true;
         }
     }
-
-    FileDetails? _fileDetails;
-
 }

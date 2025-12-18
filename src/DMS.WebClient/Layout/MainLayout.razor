@@ -12,33 +12,27 @@
 <MudSnackbarProvider />
 
 <CascadingValue Value="SubscriptionId" Name="SubscriptionId">
-    <CascadingValue Value="FolderId" Name="FolderId">
+    <CascadingValue Value="ContainerId" Name="ContainerId">
         <MudLayout>
-            <MudAppBar Elevation="0" Class="menu-background">
+            <MudAppBar Elevation="1" Class="menu-background">
                 <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@((e) => DrawerToggle())" />
-                <MudText Typo="Typo.h5" Class="ml-3">Application</MudText>
+                <MudText Typo="Typo.h5" Class="ml-3">Lynk Cloud Sync</MudText>
                 <MudSpacer />
                 <MudIconButton Icon="@Icons.Material.Filled.Logout" Color="Color.Inherit" Edge="Edge.End" OnClick="LogoutAsync" />
             </MudAppBar>
             <AuthorizeView>
                 <Authorized>
-                    <MudDrawer Class="menu-background" @bind-Open="_drawerOpen" Elevation="0" ClipMode="DrawerClipMode.Always" Variant="DrawerVariant.Mini">
-                        <MudMenu Style="padding: 2rem 0 2rem 0.5rem; width: 100%;" AnchorOrigin="Origin.CenterLeft" Color="Color.Primary">
-                            <ActivatorContent>
-                                <MudFab Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" Size="Size.Small" />
-                            </ActivatorContent>
-                            <ChildContent>
-                                <MudMenuItem Label="Folder" Icon="@Icons.Material.Filled.Folder" OnClick="OpenNewFolderDialogAsync" />
-                                <MudMenuItem Label="Upload files"  />
-                            </ChildContent>
-                        </MudMenu>
+                    <MudDrawer Class="menu-background" @bind-Open="_drawerOpen" Elevation="1" ClipMode="DrawerClipMode.Always" Variant="DrawerVariant.Mini">
+                        <MudSpacer />
                         <MudNavMenu>
-                            <MudNavLink Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Folder" Href="/" ForceLoad="true">My Files</MudNavLink>
-                            @*              <MudNavLink Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.LibraryBooks" Href="/view/1">Library</MudNavLink>
-                    <MudNavLink Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Group" Href="/view/2">Community</MudNavLink> *@
-                            <MudNavLink Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Settings" Href="/settings">Settings</MudNavLink>
+                            <MudNavLink Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Apps" Href="/" ForceLoad="true">My Files</MudNavLink>
+                            <MudNavLink Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Delete" Href="/trash">Trash</MudNavLink>
                         </MudNavMenu>
                         <MudSpacer />
+                        <MudNavMenu>
+
+                            <MudNavLink Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Settings" Href="/settings">Settings</MudNavLink>
+                        </MudNavMenu>
                     </MudDrawer>
                 </Authorized>
             </AuthorizeView>
@@ -55,7 +49,7 @@
 
     bool _drawerOpen = false;
 
-    public Guid? FolderId { get; set; }
+    public Guid? ContainerId { get; set; }
 
     public Guid SubscriptionId { get; } = Guid.Parse("CC2A839C-C7A7-4770-AFB9-AAD4054CEA31");
 
@@ -67,11 +61,6 @@
     async Task LogoutAsync()
     {
         await _accountManagement.LogoutAsync();
-    }
-
-    async Task OpenNewFolderDialogAsync()
-    {
-        await _dialogService.ShowAsync<NewFolderForm>("New Folder", new DialogOptions { CloseOnEscapeKey = true, NoHeader = true, FullWidth = true, MaxWidth = MaxWidth.Medium, Position = DialogPosition.Center });
     }
 }
 

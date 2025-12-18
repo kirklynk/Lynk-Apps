@@ -4,7 +4,7 @@
         <Found Context="routeData">
             <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)">
                 <NotAuthorized>
-                    @if (context.User.Identity?.IsAuthenticated ?? false) 
+                    @if (context.User.Identity?.IsAuthenticated ?? false)
                     {
                         <p>You are not authorized to access this resource.</p>
                     }
@@ -14,7 +14,7 @@
                     }
                 </NotAuthorized>
                 <Authorizing>
-                    <p>Authorizing...</p>
+                    <div style="text-align: center;">Authorizing... You are being redirected to the app.</div>
                 </Authorizing>
             </AuthorizeRouteView>
             <FocusOnNavigate RouteData="@routeData" Selector="h1" />

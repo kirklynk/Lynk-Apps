@@ -2,7 +2,7 @@
 
 namespace DocumentManagementService.Domain
 {
-    internal class LynkFolder
+    internal class LynkContainer
     {
         public Guid Id { get; set; }
 
@@ -15,9 +15,13 @@ namespace DocumentManagementService.Domain
 
         public Guid? ParentId { get; set; }
 
-        public virtual LynkFolder? Parent { get; set; }
+        public virtual LynkContainer? Parent { get; set; }
 
         public DateTime? ModifiedOn { get; set; }
+
+        public bool IsDeleted { get; set; } = false;
+
+        public DateTime? DeletedOn { get;  set; }
 
     }
 }

@@ -2,6 +2,7 @@ using GatewayService.Security;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Threading.RateLimiting;
@@ -18,15 +19,12 @@ builder.Services.AddDbContext<SecurityDbContext>(context =>
 });
 builder.Services.AddRateLimiter(options =>
 {
-    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
+    options.AddFixedWindowLimiter("dms-rate-limiter", config =>
     {
-        return RateLimitPartition.GetFixedWindowLimiter("GlobalLimiter", _ => new FixedWindowRateLimiterOptions
-        {
-            PermitLimit = 100,
-            Window = TimeSpan.FromMinutes(1),
-            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
-            QueueLimit = 2
-        });
+        config.PermitLimit = 10;
+        config.Window = TimeSpan.FromMinutes(1);
+        config.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+        config.QueueLimit = 2;
     });
 });
 builder.Services.AddCors(options =>
@@ -98,8 +96,9 @@ app.MapPost("/logout", async (HttpRequest request, [FromServices] SignInManager<
 {
     await signInManager.SignOutAsync();
     return Results.Ok();
-}).RequireAuthorization();
+});
 
+app.UseRateLimiter();
 
 // YARP: enable the reverse proxy endpoints
 app.MapReverseProxy();

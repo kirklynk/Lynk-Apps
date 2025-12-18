@@ -9,7 +9,7 @@ namespace DocumentManagementService.ViewModels
         [Required]
         public string Name { get; set; }
 
-        public bool IsFolder { get; set; }
+        public bool IsContainer { get; set; }
 
         public DateTime? ModifiedOn { get; set; }
     }

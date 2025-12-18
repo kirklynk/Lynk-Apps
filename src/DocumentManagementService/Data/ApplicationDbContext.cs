@@ -11,21 +11,26 @@ namespace DocumentManagementService.Data
         }
 
         public DbSet<LynkDocument> Documents { get; set; }
-        public DbSet<LynkFolder> Folders { get; set; }
+        public DbSet<LynkContainer> Containers { get; set; }
         public DbSet<Tag> Tags { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            modelBuilder.Entity<LynkDocument>()
-                .HasKey(d => d.Id);
+            modelBuilder.Entity<LynkDocument>(e =>
+            {
+                e.HasKey(d => d.Id);
+                e.HasQueryFilter(x => x.IsDeleted == false);
+                e.Property(x => x.Location).IsRequired();
+            });
 
-            modelBuilder.Entity<LynkFolder>(e =>
+            modelBuilder.Entity<LynkContainer>(e =>
             {
                 e.HasKey(f => f.Id);
                 e.HasMany(f => f.Documents)
-                    .WithOne(d => d.Folder)
-                    .HasForeignKey(d => d.FolderId)
+                    .WithOne(d => d.Container)
+                    .HasForeignKey(d => d.ContainerId)
                     .OnDelete(DeleteBehavior.Cascade);
                 e.HasOne(f => f.Parent);
+                e.HasQueryFilter(x => x.IsDeleted == false);
             });
 
             modelBuilder.Entity<Tag>(e =>

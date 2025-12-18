@@ -22,7 +22,7 @@ builder.Services.AddAuthorizationCore();
 // register the custom state provider
 builder.Services.AddScoped<AuthenticationStateProvider, CookieAuthenticationStateProvider>();
 builder.Services.AddScoped(sp => (IAccountManagement)sp.GetRequiredService<AuthenticationStateProvider>());
-builder.Services.AddScoped<IFileService, FileService>();
+builder.Services.AddScoped<IDocumentService, ContainerService>();
 builder.Services.AddMudServices();
 
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
