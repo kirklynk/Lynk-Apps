@@ -21,5 +21,11 @@ namespace DocumentManagementService.Domain
         public bool IsDeleted { get; set; } = false;
 
         public string? Location { get; set; }
+
+        [Required]
+        public string? Type { get;  set; }
+
+        [Required]
+        public string? Extension { get;  set; }
     }
 }

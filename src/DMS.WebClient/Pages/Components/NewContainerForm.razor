@@ -4,16 +4,7 @@
 
     <EditForm Model="Container" OnValidSubmit="OnValidSubmitAsync">
         <DataAnnotationsValidator />
-        <MudText Typo="Typo.h6" GutterBottom="true">New Container</MudText>
-        <MudGrid>
-            <MudItem xs="12">
-                <MudTextField @bind-Value="Container.Name" Label="Container Name" Variant="Variant.Outlined" FullWidth="true" />
-                <ValidationMessage For="@(() => Container.Name)" />
-            </MudItem>
-            <MudItem xs="12">
-                <MudButton ButtonType="ButtonType.Submit" Color="Color.Primary" Variant="Variant.Filled" Disabled="_submitting">Create</MudButton>
-            </MudItem>
-        </MudGrid>
+
 
     </EditForm>
 </div>
@@ -23,9 +14,6 @@
 
     bool _submitting = false;
     CreateContainer Container = new();
-
-    [CascadingParameter]
-    public IMudDialogInstance MudDialog { get; set; }
 
     [Parameter]
     public Guid SubscriptionId { get; set; }
@@ -46,19 +34,11 @@
             }
 
             var fileDetails = await _fileProvider.CreateContainerAsync(SubscriptionId, Container);
-            MudDialog.Close(fileDetails);
+
         }
         catch (Exception ex)
         {
-            _snackbar.Clear();
-            _snackbar.Configuration.PositionClass = Defaults.Classes.Position.BottomRight;
-            _snackbar.Add($"{ex.Message}", Severity.Error, configure =>
-            {
-                configure.CloseAfterNavigation = true;
-                configure.BackgroundBlurred = true;
-                configure.HideTransitionDuration = 1500;
-                configure.DuplicatesBehavior = SnackbarDuplicatesBehavior.Allow;
-            });
+           
         }
 
         _submitting = false;

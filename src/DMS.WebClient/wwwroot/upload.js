@@ -1,69 +1,42 @@
-﻿let controller = null;
-let paused = false;
+﻿export function triggerFileInput(elementId, url, containerId, dotNetRef) {
 
-export async function uploadStream(file, url, containerId, dotNetObjectRef) {
+    const controller = new AbortController();
+    const signal = controller.signal;
 
-    const response = await fetch(url, {
-        method: "POST",
-        body: file, // streams automatically
-        headers: {
-            "Content-Type": "application/octet-stream",
-            "X-File-Name": encodeURIComponent(file.name),
-            "X-File-Size": file.size,
-            "X-ContainerId": containerId
-        },
-    });
+    let inputElement = document.getElementById(elementId);
+    if (inputElement) {
+        inputElement.value = null; // Reset the input value to allow re-uploading the same file
+        inputElement.addEventListener('change', async (event) => {
+            try {
+                var files = event.target.files;
+                console.log(files);
+                if (files.length > 0) {
+                    var file = files[0];
+                    if (url) {
+                        let response = await fetch(url, {
+                            method: 'POST',
+                            body: file.stream ? file.stream : file,
+                            headers: {
+                                "Content-Type": "application/octet-stream",
+                                "X-File-Name": encodeURIComponent(file.name),
+                                "X-File-Size": file.size,
+                                "X-ContainerId": containerId,
+                                "X-File-Type": file.type
+                            }
+                        });
+                        console.log(response);
+                        if (response.ok) {
+                            await dotNetRef.invokeMethodAsync('onFileUploadCompleted', true);
+                        } else {
+                            await dotNetRef.invokeMethodAsync('onFileUploadCompleted', false);
+                        }
+                    }
+                }
+            } finally {
+                controller.abort();
+            }
 
-    if (!response.ok) {
-        throw new Error("Upload failed");
+        }, { signal });
+        inputElement.click();
     }
-
-    await dotNetObjectRef.invokeMethodAsync('onUploadCompleted');
-
-    //const reader = file.stream().getReader();
-
-    //controller = new AbortController();
-
-    //paused = false;
-
-    //let uploaded = 0;
-
-    //const stream = new ReadableStream({
-
-    //    async pull() {
-    //        while (paused) { await new Promise(r => setTimeout(r, 200)); }
-
-    //        const { value, done } = await reader.read();
-
-    //        if (done) {
-    //            controllerStream.close();
-    //            return;
-    //        }
-
-    //        uploaded += value.byteLength;
-    //        // onProgress(uploaded, file.size);
-    //        onPr
-    //        controllerStream.enqueue(value);
-    //    }
-    //});
-
-    //await fetch(url, {
-    //    method: "POST",
-    //    headers: {
-    //        "Content-Type": "application/octet-stream",
-    //        "X-File-Name": encodeURIComponent(file.name),
-    //        "X-File-Size": file.size,
-    //        "X-ContainerId": containerId
-    //    },
-    //    body: stream,
-    //    signal: controller.signal,
-    //    credentials: true
-    //});
-
-}
-
-export function pauseUpload() { paused = true; }
-
-export function resumeUpload() { paused = false; }
-
-export function cancelUpload() { controller?.abort(); }
+}   

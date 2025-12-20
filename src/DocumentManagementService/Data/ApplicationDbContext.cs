@@ -20,6 +20,8 @@ namespace DocumentManagementService.Data
                 e.HasKey(d => d.Id);
                 e.HasQueryFilter(x => x.IsDeleted == false);
                 e.Property(x => x.Location).IsRequired();
+                e.Property(x => x.Type).IsRequired();
+                e.Property(x => x.Extension).IsRequired();
             });
 
             modelBuilder.Entity<LynkContainer>(e =>

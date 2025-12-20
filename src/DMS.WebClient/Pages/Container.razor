@@ -1,16 +1,13 @@
 ﻿@page "/view/1/{Id:guid}"
 
-<MudPaper Elevation="0" Style="margin-bottom: 5px;">
-    <MudBreadcrumbs Items="_items"></MudBreadcrumbs>
-    <MudText Style="font-size: 20px; padding-left: 10px;">@_fileDetails?.Name</MudText>
-</MudPaper>
+
 
 <ContentList ContainerId="@Id" @ref="_allFiles" />
 
 @code {
 
-    List<BreadcrumbItem> _items = new List<BreadcrumbItem> { new BreadcrumbItem("", href: "/", icon: Icons.Material.Filled.Home) };
-    
+
+
     ContentList? _allFiles;
 
     [Parameter]
@@ -19,50 +16,4 @@
     [CascadingParameter(Name = "SubscriptionId")]
     public Guid SubscriptionId { get; set; }
 
-    bool _rendered = false;
-    DocumentInfo? _fileDetails;
-
-    protected override async Task OnParametersSetAsync()
-    {
-        try
-        {
-            if (Id != Guid.Empty)
-            {
-                _fileDetails = await _fileProvider.GetDetailsAsync(SubscriptionId, Id);
-                _items.Clear();
-                _items.Add(new BreadcrumbItem("", href: "/", icon: Icons.Material.Filled.Home));
-                if (_fileDetails != null)
-                {
-
-                    if (_fileDetails.Parent != null)
-                    {
-                        _items.Add(new BreadcrumbItem(_fileDetails.Parent.Name, href: $"/view/1/{_fileDetails.Parent.Id}"));
-                    }
-                    ;
-                    _items.Add(new BreadcrumbItem(_fileDetails.Name, href: null, disabled: true));
-                }
-            }
-        }
-        catch (Exception)
-        {
-            throw;
-        }
-
-        if (_rendered)
-        {
-            if (_allFiles != null)
-                await _allFiles.RefreshAsync(Id);
-
-        }
-       
-        StateHasChanged();
-    }
-
-    override protected void OnAfterRender(bool firstRender)
-    {
-        if (firstRender)
-        {
-            _rendered = true;
-        }
-    }
 }

@@ -1,8 +1,10 @@
 ﻿@inherits LayoutComponentBase
 @* Required *@
-<MudThemeProvider ObserveSystemThemeChange="true" />
-<MudPopoverProvider />
+<HeadContent>
+    <RadzenTheme Theme="material" />
+</HeadContent>
 
-<MudStack>
+<RadzenStack>
     @Body
-</MudStack>
+</RadzenStack>
+<RadzenComponents />

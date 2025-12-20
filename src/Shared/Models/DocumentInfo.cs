@@ -10,5 +10,6 @@
         public DateTime? DeletedOn { get; set; }
 
         public virtual DocumentInfo? Parent { get; set; }
+        public string? Type { get; set; }
     }
 }

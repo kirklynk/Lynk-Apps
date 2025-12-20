@@ -1,49 +1,34 @@
 ﻿@inherits LayoutComponentBase
-
-
-@* Required *@
-<MudThemeProvider ObserveSystemThemeChange="true" />
-<MudPopoverProvider />
-
-@* Needed for dialogs *@
-<MudDialogProvider />
-
-@* Needed for snackbars *@
-<MudSnackbarProvider />
+<HeadContent>
+    <RadzenTheme Theme="material" />
+</HeadContent>
 
 <CascadingValue Value="SubscriptionId" Name="SubscriptionId">
     <CascadingValue Value="ContainerId" Name="ContainerId">
-        <MudLayout>
-            <MudAppBar Elevation="1" Class="menu-background">
-                <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@((e) => DrawerToggle())" />
-                <MudText Typo="Typo.h5" Class="ml-3">Lynk Cloud Sync</MudText>
-                <MudSpacer />
-                <MudIconButton Icon="@Icons.Material.Filled.Logout" Color="Color.Inherit" Edge="Edge.End" OnClick="LogoutAsync" />
-            </MudAppBar>
-            <AuthorizeView>
-                <Authorized>
-                    <MudDrawer Class="menu-background" @bind-Open="_drawerOpen" Elevation="1" ClipMode="DrawerClipMode.Always" Variant="DrawerVariant.Mini">
-                        <MudSpacer />
-                        <MudNavMenu>
-                            <MudNavLink Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Apps" Href="/" ForceLoad="true">My Files</MudNavLink>
-                            <MudNavLink Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Delete" Href="/trash">Trash</MudNavLink>
-                        </MudNavMenu>
-                        <MudSpacer />
-                        <MudNavMenu>
-
-                            <MudNavLink Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Settings" Href="/settings">Settings</MudNavLink>
-                        </MudNavMenu>
-                    </MudDrawer>
-                </Authorized>
-            </AuthorizeView>
-            <MudMainContent>
-                <div style="padding: 2rem;">
+        <RadzenLayout>
+            <RadzenHeader>
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0">
+                    <RadzenSidebarToggle Click="DrawerToggle" />
+                    <RadzenLabel Text="Header" />
+                </RadzenStack>
+            </RadzenHeader>
+            <RadzenSidebar Responsive="false" Style="width: max-content">
+                <RadzenPanelMenu DisplayStyle="@(!_drawerOpen ? MenuItemDisplayStyle.IconAndText : MenuItemDisplayStyle.Icon)" ShowArrow="false">
+                    <RadzenPanelMenuItem Text="Overview" Icon="apps" Path="/" Match="NavLinkMatch.All" />
+                    <RadzenPanelMenuItem Text="Dashboard" Icon="delete" />
+                  
+                </RadzenPanelMenu>
+            </RadzenSidebar>
+            <RadzenBody>
+                <div class="rz-p-4">
                     @Body
                 </div>
-            </MudMainContent>
-        </MudLayout>
+            </RadzenBody>
+        </RadzenLayout>
+
     </CascadingValue>
 </CascadingValue>
+<RadzenComponents />
 
 @code {
 
