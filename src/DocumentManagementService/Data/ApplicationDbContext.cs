@@ -13,6 +13,9 @@ namespace DocumentManagementService.Data
         public DbSet<LynkDocument> Documents { get; set; }
         public DbSet<LynkContainer> Containers { get; set; }
         public DbSet<Tag> Tags { get; set; }
+
+        public DbSet<PendingPurge> PendingPurge { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<LynkDocument>(e =>
@@ -38,6 +41,11 @@ namespace DocumentManagementService.Data
             modelBuilder.Entity<Tag>(e =>
             {
                 e.HasKey(t => t.Id);
+            });
+
+            modelBuilder.Entity<PendingPurge>(e =>
+            {
+                e.HasKey(r => r.ReferenceId);
             });
 
             base.OnModelCreating(modelBuilder);

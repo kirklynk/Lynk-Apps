@@ -1,17 +1,14 @@
-﻿@page "/view/1/{Id:guid}"
-
-
+﻿@page "/view/0"
+@page "/view/1/{Id:guid}"
 
 <ContentList ContainerId="@Id" @ref="_allFiles" />
 
 @code {
 
-
-
     ContentList? _allFiles;
 
     [Parameter]
-    public Guid Id { get; set; }
+    public Guid? Id { get; set; }
 
     [CascadingParameter(Name = "SubscriptionId")]
     public Guid SubscriptionId { get; set; }

@@ -1,7 +1,4 @@
-﻿@page "/login"
-@layout AuthenticationLayout
-
-@attribute [AllowAnonymous]
+﻿@page "/account/login"
 
 
 <EditForm Model="_loginRequest" OnValidSubmit="HandleValidSubmit">
@@ -9,14 +6,14 @@
     <div style="max-width: 400px; width: 100%; margin: 2rem auto;">
         <MudCard>
             <div>
-                <MudText Style="text-align: center; width: 100%;">Login to your account</MudText>
+                <MudText Size="H4" Style="text-align: center; width: 100%;">Login to your account</MudText>
             </div>
             <div style="margin-top: 1rem;">
                 <MudTextField Style="width: 100%;" Placeholder="Email" @bind-Value="_loginRequest.Email" Name="Email" />
                 <ValidationMessage For="@(() => _loginRequest.Email)" />
             </div>
             <div style="margin-top: 1rem;">
-                <MudTextField Style="width: 100%;" Placeholder="Password" @bind-Value="_loginRequest.Password"  Name="Password" InputType="InputType.Password" />
+                <MudTextField Style="width: 100%;" Placeholder="Password" @bind-Value="_loginRequest.Password" Name="Password" Type="Password" />
                 <ValidationMessage For="@(() => _loginRequest.Password)" />
             </div>
             <div style="margin-top: 1rem; text-align: right;">
@@ -34,14 +31,14 @@
 
     private async Task HandleValidSubmit()
     {
-        var result = await _accountManagement.LoginAsync(_loginRequest);
-        if (result)
-        {
-            _navigationManager.NavigateTo(ReturnUrl ?? "/", true);
-        }
-        else
-        {
-            // Handle failed login
-        }
+       // var result = await _accountManagement.LoginAsync(_loginRequest);
+        // if (result)
+        // {
+        //     _navigationManager.NavigateTo(ReturnUrl ?? "/", true);
+        // }
+        // else
+        // {
+        //     // Handle failed login
+        // }
     }
 }

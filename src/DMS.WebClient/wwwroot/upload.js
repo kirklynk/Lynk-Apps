@@ -1,4 +1,7 @@
-﻿export function triggerFileInput(elementId, url, containerId, dotNetRef) {
+﻿export function uploadFile(elementId, url, containerId, dotNetRef) {
+
+    console.log("uploadFile called");
+    console.log(`elementId: ${elementId}, url: ${url}, containerId: ${containerId}`);
 
     const controller = new AbortController();
     const signal = controller.signal;
@@ -9,26 +12,30 @@
         inputElement.addEventListener('change', async (event) => {
             try {
                 var files = event.target.files;
-                console.log(files);
+
                 if (files.length > 0) {
-                    var file = files[0];
-                    if (url) {
-                        let response = await fetch(url, {
-                            method: 'POST',
-                            body: file.stream ? file.stream : file,
-                            headers: {
-                                "Content-Type": "application/octet-stream",
-                                "X-File-Name": encodeURIComponent(file.name),
-                                "X-File-Size": file.size,
-                                "X-ContainerId": containerId,
-                                "X-File-Type": file.type
+                    for (const file of files) {
+                        //var file = files[0];
+                        if (url) {
+                            let response = await fetch(url, {
+                                method: 'POST',
+                                body: file,
+                                headers: {
+                                    "Content-Type": "application/octet-stream",
+                                    "X-File-Name": encodeURIComponent(file.name),
+                                    "X-File-Size": file.size,
+                                    "X-ContainerId": containerId,
+                                    "X-File-Type": file.type,
+                                    "Content-Length": file.size,
+                                    "X-Modified-Since": file.lastModified ? new Date(file.lastModified).toUTCString() : new Date().toUTCString()
+                                }
+                            });
+                            console.log(response);
+                            if (response.ok) {
+                                await dotNetRef.invokeMethodAsync('onFileUploadCompleted', true);
+                            } else {
+                                await dotNetRef.invokeMethodAsync('onFileUploadCompleted', false);
                             }
-                        });
-                        console.log(response);
-                        if (response.ok) {
-                            await dotNetRef.invokeMethodAsync('onFileUploadCompleted', true);
-                        } else {
-                            await dotNetRef.invokeMethodAsync('onFileUploadCompleted', false);
                         }
                     }
                 }

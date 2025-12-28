@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace DMS.WebClient.Models
+namespace DMS.Web.Models
 {
     public class LoginRequest
     {

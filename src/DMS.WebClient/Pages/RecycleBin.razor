@@ -1,10 +1,17 @@
-﻿@* @page "/trash"
-@inject ILogger<TrashCan> _logger
+﻿@page "/recyclebin"
+@inject ILogger<RecycleBin> _logger
 
 <MudPaper Elevation="0" Style="margin-bottom: 5px;">
     <MudBreadcrumbs Items="@([new BreadcrumbItem("", href: "/", icon: Icons.Material.Filled.Home)])"></MudBreadcrumbs>
     <MudText Style="font-size: 20px; padding-left: 10px;">Recycle bin</MudText>
 </MudPaper>
+
+<p class="py-2">
+    <MudStack Row="true" Class="fullwidth" Style="width: 100%;">
+        <MudButton Variant="Variant.Outlined" Color="Color.Error" StartIcon="@Icons.Material.Outlined.DeleteForever" DropShadow="true" OnClick="EmptyRecycleBinAsync" Disabled="_isEmpty">Empty recycle bin</MudButton>
+    </MudStack>
+</p>
+
 <div>
     <MudDataGrid T="DocumentInfo" Bordered="false" FixedHeader="true" Virtualize="true" Outlined="false" ItemSize="20.0f" SortMode="SortMode.Single" Loading="@_isLoading" Height="500px" RowClass="row" VirtualizeServerData="GetDataAsync" @ref="_dataGrid">
         <Columns>
@@ -29,7 +36,7 @@
                             <MudIconButton Icon="@Icons.Material.Filled.MoreVert" Color="Color.Inherit" Edge="Edge.End" />
                         </ActivatorContent>
                         <ChildContent>
-                            <MudMenuItem Label="Restore" Icon="@Icons.Material.Filled.Restore" OnClick="@(async () => await RestoreAsync(context.Item.Id))"  />
+                            <MudMenuItem Label="Restore" Icon="@Icons.Material.Filled.Restore" OnClick="@(async () => await RestoreAsync(context.Item.Id))" />
 
                         </ChildContent>
                     </MudMenu>
@@ -37,32 +44,47 @@
             </TemplateColumn>
         </Columns>
         <NoRecordsContent>
-            <MudStack Justify="Justify.Center" AlignItems="AlignItems.Center">
-                There is no content.
-            </MudStack>
+            <EmptyContent>
+                The recycle bin is empty.
+            </EmptyContent>
         </NoRecordsContent>
+        <Header>
+        </Header>
     </MudDataGrid>
 </div>
+
+<MudMessageBox @ref="_mudMessageBox" Title="Empty recycle bin" CancelText="Cancel">
+    <MessageContent>
+        Are you sure you want to permanently delete all these items?
+    </MessageContent>
+    <YesButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Error"> Delete</MudButton>
+    </YesButton>
+</MudMessageBox>
+
 @code {
 
     [CascadingParameter(Name = "SubscriptionId")]
     public Guid SubscriptionId { get; set; }
 
     MudDataGrid<DocumentInfo>? _dataGrid;
+    MudMessageBox? _mudMessageBox;
     bool _isLoading = true;
+    bool _isEmpty = true;
 
     async Task<GridData<DocumentInfo>> GetDataAsync(GridStateVirtualize<DocumentInfo> request, CancellationToken token)
     {
         _isLoading = true;
+        _isEmpty = true;
         StateHasChanged();
-
+        
         try
         {
 
             var sort = request.SortDefinitions.FirstOrDefault();
 
             var query = await _fileProvider.QueryDeletedAsync(SubscriptionId, skip: request.StartIndex, take: request.Count, orderBy: sort?.SortBy, descending: sort != null ? !sort.Descending : false);
-
+            _isEmpty = query.TotalCount == 0;
             return new GridData<DocumentInfo>
             {
                 Items = query.Items ?? [],
@@ -109,5 +131,17 @@
             StateHasChanged();
         }
     }
+
+    async Task EmptyRecycleBinAsync()
+    {
+        if (_mudMessageBox != null)
+        {
+            var result = await _mudMessageBox.ShowAsync();
+            if (result == true)
+            {
+                await _fileProvider.EmptyRecycleBinAsync(SubscriptionId);
+                await _dataGrid!.ReloadServerData();
+            }
+        }
+    }
 }
- *@

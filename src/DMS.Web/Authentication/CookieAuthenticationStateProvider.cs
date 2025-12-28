@@ -1,5 +1,4 @@
-﻿using DMS.WebClient.Models;
-using DMS.WebClient.Pages;
+﻿using DMS.Web.Models;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.Extensions.Logging;
 using System.Net;
@@ -8,7 +7,7 @@ using System.Net.Http.Json;
 using System.Security.Claims;
 using System.Text.Json;
 
-namespace DMS.WebClient.Authentication
+namespace DMS.Web.Authentication
 {
     public class CookieAuthenticationStateProvider(IHttpClientFactory clientFactory, ILogger<CookieAuthenticationStateProvider> logger) : AuthenticationStateProvider, IAccountManagement
     {
@@ -37,7 +36,6 @@ namespace DMS.WebClient.Authentication
                     {
                         new(ClaimTypes.Name, userInfo.Email),
                         new(ClaimTypes.Email, userInfo.Email),
-                        new("FullName", userInfo.FullName)
                     };
 
                     // add any additional claims
@@ -111,5 +109,6 @@ namespace DMS.WebClient.Authentication
             NotifyAuthenticationStateChanged(GetAuthenticationStateAsync());
             return response.IsSuccessStatusCode;
         }
+
     }
 }

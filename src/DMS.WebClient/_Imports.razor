@@ -19,14 +19,17 @@
 @using Shared.Common.Interfaces
 @using Shared.Models
 
-@using Radzen
-@using Radzen.Blazor
-@using Radzen.Blazor.Rendering
+@using MudBlazor
+@using MudBlazor.Components
 
+@attribute [Authorize]
 
 @inject IAccountManagement _accountManagement
 @inject NavigationManager _navigationManager
 @inject IDocumentService _fileProvider
 @inject IJSRuntime _jsRuntime
+@inject ISnackbar _snackbar
+@inject IDialogService _dialogService
+@inject AuthenticationStateProvider _authenticationStateProvider
 
 

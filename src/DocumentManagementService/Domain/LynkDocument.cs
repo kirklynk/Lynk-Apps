@@ -20,7 +20,7 @@ namespace DocumentManagementService.Domain
 
         public bool IsDeleted { get; set; } = false;
 
-        public string? Location { get; set; }
+        public string Location { get; set; } = string.Empty;
 
         [Required]
         public string? Type { get;  set; }

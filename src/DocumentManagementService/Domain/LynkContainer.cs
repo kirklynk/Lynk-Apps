@@ -17,6 +17,8 @@ namespace DocumentManagementService.Domain
 
         public virtual LynkContainer? Parent { get; set; }
 
+        public virtual ICollection<LynkContainer> Children { get; set; } = new HashSet<LynkContainer>();
+
         public DateTime? ModifiedOn { get; set; }
 
         public bool IsDeleted { get; set; } = false;

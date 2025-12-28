@@ -1,11 +1,19 @@
 ﻿@using Shared.Requests
 
 <div style="margin: 1rem;">
-
+    <div>@ContainerId</div>
     <EditForm Model="Container" OnValidSubmit="OnValidSubmitAsync">
         <DataAnnotationsValidator />
-
-
+        <MudText Typo="Typo.h6" GutterBottom="true">New Container</MudText>
+        <MudGrid>
+            <MudItem xs="12">
+                <MudTextField @bind-Value="Container.Name" Label="Container Name" Variant="Variant.Outlined" FullWidth="true" />
+                <ValidationMessage For="@(() => Container.Name)" />
+            </MudItem>
+            <MudItem xs="12">
+                <MudButton ButtonType="ButtonType.Submit" Color="Color.Primary" Variant="Variant.Filled" Disabled="_submitting">Create</MudButton>
+            </MudItem>
+        </MudGrid>
     </EditForm>
 </div>
 
@@ -21,6 +29,9 @@
     [Parameter]
     public Guid? ContainerId { get; set; }
 
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; }
+
     async Task OnValidSubmitAsync()
     {
         _submitting = true;
@@ -34,14 +45,13 @@
             }
 
             var fileDetails = await _fileProvider.CreateContainerAsync(SubscriptionId, Container);
-
+            MudDialog.Close(fileDetails);
         }
         catch (Exception ex)
         {
-           
-        }
 
+        }
         _submitting = false;
-        StateHasChanged();
+        StateHasChanged();        
     }
 }

@@ -1,8 +1,38 @@
 ﻿@page "/"
-@attribute [Authorize]
+@using System.Security.Principal
+
 
 <PageTitle>Home</PageTitle>
 
+<p>
+    <MudStack Justify="Justify.Center" AlignItems="AlignItems.Center">
+        <h2>Hello @User</h2>
+        <p>
+            Here is your quick glancethe with latest updates.
+        </p>
+    </MudStack>
+</p>
+<p>
+    <MudGrid>
+        <MudItem xs="12" sm="12" md="6">
+            <MudPaper Class="d-flex align-center justify-center mud-width-full py-8">
+                <h1>
+                    Recent
+                </h1>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" sm="12" md="6">
+            <MudPaper Class="d-flex align-center justify-center mud-width-full py-8">
+                <h1>
+                    Pinned
+                </h1>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+</p>
 
-<ContentList />
+@code {
+    [CascadingParameter(Name = "User")]
+    public string? User { get; set; }
+}
 

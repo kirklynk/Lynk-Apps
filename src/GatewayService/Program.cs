@@ -1,11 +1,17 @@
 using GatewayService.Security;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using System;
+using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
+using System.Runtime.CompilerServices;
 using System.Threading.RateLimiting;
+using Yarp.ReverseProxy.Transforms;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,6 +23,16 @@ builder.Services.AddDbContext<SecurityDbContext>(context =>
 {
     context.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"));
 });
+//builder.Services.AddAuthentication(c =>
+//{
+//    c.DefaultAuthenticateScheme = "Cookies";
+//    c.DefaultChallengeScheme = "Cookies";
+//}).AddCookie("Cookies", c =>
+//{
+//    c.Cookie.Name = builder.Configuration.GetValue<string>("cookies:name");
+//    c.DataProtectionProvider = DataProtectionProvider.Create(builder.Configuration.GetValue<string>("cookies:provider") ?? "lynk_services_cookies");
+//});
+
 builder.Services.AddRateLimiter(options =>
 {
     options.AddFixedWindowLimiter("dms-rate-limiter", config =>
@@ -27,6 +43,7 @@ builder.Services.AddRateLimiter(options =>
         config.QueueLimit = 2;
     });
 });
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("CorsPolicy", policy =>
@@ -47,7 +64,24 @@ builder.Services.AddIdentityApiEndpoints<User>(options =>
 
 // YARP: add the reverse proxy services
 builder.Services.AddReverseProxy()
-    .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
+    .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
+    .AddTransforms(context =>
+    {
+        // Mark requests as coming from the trusted gateway
+        context.AddRequestTransform(ctx =>
+        {
+            ctx.ProxyRequest.Headers.Add("X-Gateway-Auth", "true");
+
+            var user = ctx.HttpContext.User;
+            if (user.Identity?.IsAuthenticated == true)
+            {
+                ctx.ProxyRequest.Headers.Add(
+                    "X-User-Name", user.Identity.Name);
+            }
+
+            return ValueTask.CompletedTask;
+        });
+    }); ;
 
 builder.Services.AddAuthorizationBuilder().AddPolicy("Dms", policy =>
 {
@@ -66,11 +100,10 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseCors("CorsPolicy");
 
-app.MapIdentityApi<User>();
-
 app.UseAuthentication();
 app.UseAuthorization();
 
+app.MapIdentityApi<User>();
 
 app.MapGet("/app/user/info", async (HttpRequest request, [FromServices] UserManager<User> userManager, [FromServices] SecurityDbContext dbContext) =>
 {
@@ -88,7 +121,7 @@ app.MapGet("/app/user/info", async (HttpRequest request, [FromServices] UserMana
            .Where(x => x.Id == userEntity.Id)
            .SelectMany(x => x.Subscriptions).Select(x => new { x.Id, x.Name }).ToListAsync();
 
-    return Results.Ok(new { userEntity.Email, Subscriptions = subscriptions });
+    return Results.Ok(new { userEntity.Email, Subscriptions = subscriptions, userEntity.FullName });
 
 }).RequireAuthorization();
 

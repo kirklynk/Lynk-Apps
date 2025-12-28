@@ -1,0 +1,11 @@
+﻿<MudStack Justify="Justify.Center" AlignItems="AlignItems.Center" Style="font-size: 1.5rem; color: #999; font-weight: 300;">
+    @ChildContent
+</MudStack>
+
+
+@code {
+
+    [Parameter]
+    public RenderFragment ChildContent { get; set; }
+
+}

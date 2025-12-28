@@ -6,22 +6,25 @@ using System.Net.Http.Json;
 
 namespace DMS.WebClient.Services
 {
-    public class ContainerService(IHttpClientFactory factory) : IDocumentService
+    public class ContainerService(IHttpClientFactory factory, ILogger<ContainerService> logger) : IDocumentService
     {
         HttpClient _httpClient => factory.CreateClient("backend");
 
         public async Task<DocumentInfo?> CreateContainerAsync(Guid subscriptionId, CreateContainer Container)
         {
+            logger.LogDebug("Creating container {ContainerName}", Container.Name);
+
             using var response = await _httpClient.PostAsJsonAsync($"/dms/api/{subscriptionId}/documents/containers", Container);
             try
             {
                 response.EnsureSuccessStatusCode();
+                logger.LogDebug("Container {ContainerName} created successfully", Container.Name);
                 return await response.Content.ReadFromJsonAsync<DocumentInfo>();
             }
             catch (HttpRequestException hre)
             {
                 var content = await response.Content.ReadFromJsonAsync<ProblemDetails>();
-
+                logger.LogError("Error creating container {ContainerName}: {ErrorDetail}", Container.Name, content?.Detail ?? hre.Message);
                 throw new ApplicationException(content?.Detail ?? hre.Message, hre);
             }
             catch (Exception)
@@ -36,6 +39,12 @@ namespace DMS.WebClient.Services
             response.EnsureSuccessStatusCode();
         }
 
+        public async Task EmptyRecycleBinAsync(Guid subscriptionId)
+        {
+            using var response = await _httpClient.PostAsync($"/dms/api/{subscriptionId}/documents/recyclebin/empty", null);
+            response.EnsureSuccessStatusCode();
+        }
+
         public async Task<DocumentInfo?> GetDetailsAsync(Guid subscriptionId, Guid ContainerId)
         {
             using var response = await _httpClient.GetAsync($"/dms/api/{subscriptionId}/documents/containers/{ContainerId}/details");
@@ -46,6 +55,8 @@ namespace DMS.WebClient.Services
         public async Task<QuerySet<DocumentInfo>> QueryAsync(Guid subscriptionId, Guid? ContainerId = null, int skip = 0, int take = 10, string search = "", string? orderBy = null, bool descending = false, CancellationToken cancellationToken = default)
         {
 
+            logger.LogDebug("Querying documents in subscription {SubscriptionId} ContainerId: {ContainerId} Skip: {Skip} Take: {Take} Search: {Search} OrderBy: {OrderBy} Descending: {Descending}",
+                subscriptionId, ContainerId, skip, take, search, orderBy, descending);
             string url = ContainerId.HasValue ? $"/dms/api/{subscriptionId}/documents/containers/{ContainerId}" : $"/dms/api/{subscriptionId}/documents";
 
             var filters = new Dictionary<string, string>();
@@ -67,6 +78,7 @@ namespace DMS.WebClient.Services
             }
 
             var response = await _httpClient.GetFromJsonAsync<QuerySet<DocumentInfo>>(url, cancellationToken) ?? new QuerySet<DocumentInfo>();
+            logger.LogDebug("Query returned {TotalCount} items", response.TotalCount);
             return response;
         }
 
