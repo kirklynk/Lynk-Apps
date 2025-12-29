@@ -6,9 +6,7 @@
 <PageTitle>DMS - @(_container?.Name ?? $"My Files")</PageTitle>
 
 <div>
-    <MudBreadcrumbs Items="_breadcrumbs">
-
-    </MudBreadcrumbs>
+    <MudBreadcrumbs Items="_breadcrumbs" />
 </div>
 
 <MudText HtmlTag="h2" Style="font-size: 1.5rem; margin-bottom: 1rem;">
@@ -147,7 +145,6 @@
         }
     }
 
-
     async Task<GridData<DocumentInfo>> GetDataAsync(GridStateVirtualize<DocumentInfo> request, CancellationToken token)
     {
         _isLoading = true;
@@ -193,7 +190,7 @@
                 NoHeader = true,
                 FullWidth = true,
                 MaxWidth = MaxWidth.Small,
-                Position = DialogPosition.Center
+                Position = DialogPosition.Center 
             });
 
         var fileDetails = await result.GetReturnValueAsync<DocumentInfo>();
@@ -217,7 +214,11 @@
                 await _fileProvider.DeleteAsync(SubscriptionId, item);
                 _snackbar?.Clear();
                 _snackbar?.Configuration.PositionClass = Defaults.Classes.Position.BottomRight;
-                _snackbar?.Add("Item deleted successfully.", Severity.Success);
+                _snackbar?.Add("Item deleted successfully.", Severity.Success, configure: op=>
+                {
+                    op.VisibleStateDuration = 1500;
+                });
+
                 if (_dataGrid != null)
                 {
                     await _dataGrid.ReloadServerData();
@@ -254,7 +255,10 @@
             await _dataGrid.ReloadServerData();
             _snackbar?.Clear();
             _snackbar?.Configuration.PositionClass = Defaults.Classes.Position.BottomRight;
-            _snackbar?.Add("File uploaded successfully.", Severity.Success);
+            _snackbar?.Add("File uploaded successfully.", Severity.Success, configure: op =>
+                {
+                    op.VisibleStateDuration = 1500;
+                });
         }
         else
         {

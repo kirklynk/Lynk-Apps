@@ -3,16 +3,15 @@
 
 @attribute [AllowAnonymous]
 
-
 <EditForm Model="_loginRequest" OnValidSubmit="HandleValidSubmit">
     <DataAnnotationsValidator />
-    <div style="max-width: 400px; width: 100%; margin: 2rem auto;">
-        <MudCard>
+    <div style="width: 400px; width: 100%; margin: 2rem auto;">
+        <MudCard Style="padding: 1rem; width: 350px;" Elevation="2" Square="true">
             <div>
-                <MudText Style="text-align: center; width: 100%;">Login to your account</MudText>
+                <MudText Style="text-align: center; width: 100%;" Color="Color.Tertiary">Lynk DMS</MudText>
             </div>
             <div style="margin-top: 1rem;">
-                <MudTextField Style="width: 100%;" Placeholder="Email" @bind-Value="_loginRequest.Email" Name="Email" />
+                <MudTextField Style="width: 100%;" Placeholder="Email" @bind-Value="_loginRequest.Email" Name="Email" AutoFocus="true" />
                 <ValidationMessage For="@(() => _loginRequest.Email)" />
             </div>
             <div style="margin-top: 1rem;">

@@ -1,9 +1,6 @@
-﻿export function uploadFile(elementId, url, containerId, dotNetRef) {
+﻿const controller = new AbortController();
+export function uploadFile(elementId, url, containerId, dotNetRef) {
 
-    console.log("uploadFile called");
-    console.log(`elementId: ${elementId}, url: ${url}, containerId: ${containerId}`);
-
-    const controller = new AbortController();
     const signal = controller.signal;
 
     let inputElement = document.getElementById(elementId);
@@ -15,7 +12,7 @@
 
                 if (files.length > 0) {
                     for (const file of files) {
-                        //var file = files[0];
+
                         if (url) {
                             let response = await fetch(url, {
                                 method: 'POST',
@@ -27,10 +24,10 @@
                                     "X-ContainerId": containerId,
                                     "X-File-Type": file.type,
                                     "Content-Length": file.size,
-                                    "X-Modified-Since": file.lastModified ? new Date(file.lastModified).toUTCString() : new Date().toUTCString()
+                                    "X-Last-Modified": file.lastModified ? new Date(file.lastModified).toUTCString() : new Date().toUTCString()
                                 }
                             });
-                            console.log(response);
+                            
                             if (response.ok) {
                                 await dotNetRef.invokeMethodAsync('onFileUploadCompleted', true);
                             } else {

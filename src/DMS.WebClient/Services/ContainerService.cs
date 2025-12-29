@@ -57,6 +57,7 @@ namespace DMS.WebClient.Services
 
             logger.LogDebug("Querying documents in subscription {SubscriptionId} ContainerId: {ContainerId} Skip: {Skip} Take: {Take} Search: {Search} OrderBy: {OrderBy} Descending: {Descending}",
                 subscriptionId, ContainerId, skip, take, search, orderBy, descending);
+
             string url = ContainerId.HasValue ? $"/dms/api/{subscriptionId}/documents/containers/{ContainerId}" : $"/dms/api/{subscriptionId}/documents";
 
             var filters = new Dictionary<string, string>();
@@ -77,9 +78,20 @@ namespace DMS.WebClient.Services
                 url += $"?{queryString}";
             }
 
-            var response = await _httpClient.GetFromJsonAsync<QuerySet<DocumentInfo>>(url, cancellationToken) ?? new QuerySet<DocumentInfo>();
-            logger.LogDebug("Query returned {TotalCount} items", response.TotalCount);
-            return response;
+            var response = await _httpClient.GetAsync(url, cancellationToken);
+            try
+            {
+                response.EnsureSuccessStatusCode();
+                var result = await response.Content.ReadFromJsonAsync<QuerySet<DocumentInfo>>(cancellationToken) ?? new QuerySet<DocumentInfo>();
+                logger.LogDebug("Query returned {TotalCount} items", result.TotalCount);
+                return result;
+            }
+            catch (Exception ex)
+            {
+               
+                throw;
+            }
+
         }
 
         public async Task<QuerySet<DocumentInfo>> QueryDeletedAsync(Guid subscriptionId, int skip = 0, int take = 10, string search = "", string? orderBy = null, bool descending = false, CancellationToken cancellationToken = default)
@@ -109,9 +121,9 @@ namespace DMS.WebClient.Services
             return response;
         }
 
-        public async Task RestoreAsync(Guid subscriptionId, Guid id)
+        public async Task RestoreAsync(Guid subscriptionId, Restore model)
         {
-            var response = await _httpClient.PostAsync($"/dms/api/{subscriptionId}/documents/recyclebin/restore/{id}", null);
+            var response = await _httpClient.PostAsJsonAsync($"/dms/api/{subscriptionId}/documents/recyclebin/restore", model);
             response.EnsureSuccessStatusCode();
         }
 

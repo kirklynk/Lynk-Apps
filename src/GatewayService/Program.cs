@@ -73,6 +73,7 @@ builder.Services.AddReverseProxy()
             ctx.ProxyRequest.Headers.Add("X-Gateway-Auth", "true");
 
             var user = ctx.HttpContext.User;
+            
             if (user.Identity?.IsAuthenticated == true)
             {
                 ctx.ProxyRequest.Headers.Add(
@@ -81,7 +82,7 @@ builder.Services.AddReverseProxy()
 
             return ValueTask.CompletedTask;
         });
-    }); ;
+    });
 
 builder.Services.AddAuthorizationBuilder().AddPolicy("Dms", policy =>
 {

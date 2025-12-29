@@ -1,4 +1,5 @@
 ﻿@page "/recyclebin"
+@using Shared.Requests
 @inject ILogger<RecycleBin> _logger
 
 <MudPaper Elevation="0" Style="margin-bottom: 5px;">
@@ -6,15 +7,21 @@
     <MudText Style="font-size: 20px; padding-left: 10px;">Recycle bin</MudText>
 </MudPaper>
 
-<p class="py-2">
+<p class="mb-4">
     <MudStack Row="true" Class="fullwidth" Style="width: 100%;">
-        <MudButton Variant="Variant.Outlined" Color="Color.Error" StartIcon="@Icons.Material.Outlined.DeleteForever" DropShadow="true" OnClick="EmptyRecycleBinAsync" Disabled="_isEmpty">Empty recycle bin</MudButton>
+        <MudButton Variant="Variant.Text" Color="Color.Default" StartIcon="@Icons.Material.Outlined.DeleteForever" DropShadow="true" OnClick="EmptyRecycleBinAsync" Disabled="_isEmpty">Empty recycle bin</MudButton>
+        @if (_selected.Count > 0)
+        {
+            <MudButton Variant="Variant.Text" Color="Color.Default" StartIcon="@Icons.Material.Outlined.Restore" DropShadow="true" OnClick="@(async () => await RestoreAsync(new Restore() { Items = _selected.Select(x => x.Id).ToList() }))">Restore selected</MudButton>
+            <MudButton Variant="Variant.Text" Color="Color.Default" StartIcon="@Icons.Material.Outlined.DeleteForever" DropShadow="true">Delete selected</MudButton>
+        }
     </MudStack>
 </p>
 
 <div>
-    <MudDataGrid T="DocumentInfo" Bordered="false" FixedHeader="true" Virtualize="true" Outlined="false" ItemSize="20.0f" SortMode="SortMode.Single" Loading="@_isLoading" Height="500px" RowClass="row" VirtualizeServerData="GetDataAsync" @ref="_dataGrid">
+    <MudDataGrid MultiSelection="true" T="DocumentInfo" Bordered="false" SelectedItems="_selected" FixedHeader="true" Virtualize="true" Outlined="false" ItemSize="20.0f" SortMode="SortMode.Single" Loading="@_isLoading" Height="500px" RowClass="row" VirtualizeServerData="GetDataAsync" @ref="_dataGrid" SelectOnRowClick="true" SelectedItemsChanged="@(() => StateHasChanged())" SelectedItemChanged="@(() => StateHasChanged())">
         <Columns>
+            <SelectColumn ShowInHeader="false" T="DocumentInfo" />
             <TemplateColumn CellStyle="width: 24px;">
                 <CellTemplate>
                     @if (context.Item.IsContainer)
@@ -31,12 +38,12 @@
             <PropertyColumn Property="x => x.DeletedOn" SortBy="x => x.IsContainer" />
             <TemplateColumn CellStyle="width: 24px;">
                 <CellTemplate>
-                    <MudMenu AnchorOrigin="Origin.CenterLeft" Color="Color.Primary">
+                    <MudMenu AnchorOrigin="Origin.CenterLeft" Color="Color.Primary" Disabled="_dataGrid?.SelectedItems.Count > 0">
                         <ActivatorContent>
                             <MudIconButton Icon="@Icons.Material.Filled.MoreVert" Color="Color.Inherit" Edge="Edge.End" />
                         </ActivatorContent>
                         <ChildContent>
-                            <MudMenuItem Label="Restore" Icon="@Icons.Material.Filled.Restore" OnClick="@(async () => await RestoreAsync(context.Item.Id))" />
+                            <MudMenuItem Label="Restore" Icon="@Icons.Material.Filled.Restore" OnClick="@(async () => await RestoreAsync(new Restore(){ Items = new List<Guid> { context.Item.Id } }))" />
 
                         </ChildContent>
                     </MudMenu>
@@ -71,13 +78,14 @@
     MudMessageBox? _mudMessageBox;
     bool _isLoading = true;
     bool _isEmpty = true;
+    HashSet<DocumentInfo> _selected = [];
 
     async Task<GridData<DocumentInfo>> GetDataAsync(GridStateVirtualize<DocumentInfo> request, CancellationToken token)
     {
         _isLoading = true;
         _isEmpty = true;
         StateHasChanged();
-        
+
         try
         {
 
@@ -108,15 +116,20 @@
         };
     }
 
-    async Task RestoreAsync(Guid documentId)
+    async Task RestoreAsync(Restore restore)
     {
         _isLoading = true;
+        _selected.Clear();
         StateHasChanged();
+        _snackbar?.Clear();
+        _snackbar?.Configuration.PositionClass = Defaults.Classes.Position.BottomRight;
         try
         {
-            _logger.LogInformation("Restoring document {DocumentId} in subscription {SubscriptionId}", documentId, SubscriptionId);
-
-            await _fileProvider.RestoreAsync(SubscriptionId, documentId);
+            await _fileProvider.RestoreAsync(SubscriptionId, restore);
+            _snackbar?.Add("Items restored successfully.", Severity.Success, configure: op =>
+                {
+                    op.VisibleStateDuration = 1500;
+                });
             if (_dataGrid != null)
             {
                 await _dataGrid.ReloadServerData();
@@ -142,6 +155,7 @@
                 await _fileProvider.EmptyRecycleBinAsync(SubscriptionId);
                 await _dataGrid!.ReloadServerData();
             }
+            StateHasChanged();
         }
     }
 }

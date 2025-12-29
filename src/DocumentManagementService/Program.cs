@@ -238,7 +238,7 @@ apis.MapPost("/recyclebin/empty", async ([FromServices] ApplicationDbContext dbC
 
     try
     {
-        var pendingPurge =  dbContext.PendingPurge.IgnoreQueryFilters()
+        var pendingPurge = dbContext.PendingPurge.IgnoreQueryFilters()
             .Where(x => x.SubscriptionId == subscriptionId)
             .Select(x => x.ReferenceId);
 
@@ -277,19 +277,28 @@ apis.MapPost("/recyclebin/empty", async ([FromServices] ApplicationDbContext dbC
 
 });
 
-apis.MapPost("/recyclebin/restore/{id}", async ([FromServices] ApplicationDbContext dbContext, [FromRoute] Guid subscriptionId, [FromRoute] Guid id, HttpRequest request) =>
+apis.MapPost("/recyclebin/restore", async ([FromServices] ApplicationDbContext dbContext, [FromRoute] Guid subscriptionId, [FromBody] Restore model, HttpRequest request) =>
 {
-
-    await dbContext.Containers.IgnoreQueryFilters().Where(x => x.SubscriptionId == subscriptionId && x.IsDeleted && x.Id == id).ExecuteUpdateAsync(x =>
-        x.SetProperty(c => c.IsDeleted, false)
-         .SetProperty(c => c.DeletedOn, (DateTime?)null)
-    );
-
-    await dbContext.Documents.IgnoreQueryFilters().Where(x => x.SubscriptionId == subscriptionId && x.IsDeleted && x.Id == id).ExecuteUpdateAsync(x =>
+    if (model.Items == null || !model.Items.Any())
     {
-        x.SetProperty(c => c.IsDeleted, false);
-        x.SetProperty(c => c.DeletedOn, (DateTime?)null);
-    });
+        return Results.BadRequest("No items specified for restoration.");
+    }
+
+    await dbContext.Containers.IgnoreQueryFilters()
+        .Where(x => x.SubscriptionId == subscriptionId && x.IsDeleted && model.Items.Contains(x.Id))
+        .ExecuteUpdateAsync(x =>
+        {
+            x.SetProperty(c => c.IsDeleted, false);
+            x.SetProperty(c => c.DeletedOn, (DateTime?)null);
+        });
+
+    await dbContext.Documents.IgnoreQueryFilters()
+        .Where(x => x.SubscriptionId == subscriptionId && x.IsDeleted && model.Items.Contains(x.Id))
+        .ExecuteUpdateAsync(x =>
+        {
+            x.SetProperty(c => c.IsDeleted, false);
+            x.SetProperty(c => c.DeletedOn, (DateTime?)null);
+        });
 
     return Results.Ok();
 });
@@ -314,7 +323,6 @@ apis.MapGet("/containers/{id}/details", async ([FromServices] ApplicationDbConte
     });
 
 }).Produces<DocumentInfo>();
-
 
 apis.MapDelete("/{id}", async ([FromServices] ApplicationDbContext dbContext, Guid subscriptionId, Guid id, bool isPermanent = false, CancellationToken cancellationToken = default) =>
 {
