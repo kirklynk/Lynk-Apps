@@ -6,5 +6,7 @@ namespace DMS.WebClient.Authentication
     {
         Task<bool> LoginAsync(LoginRequest request);
         Task<bool> LogoutAsync();
+
+        public List<Subscription> Subscriptions { get; set; }
     }
 }

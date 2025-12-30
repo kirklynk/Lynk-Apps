@@ -2,8 +2,8 @@ using DocumentManagementService.Data;
 using DocumentManagementService.Domain;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Shared.Models;
-using Shared.Requests;
 using System.Linq;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -229,7 +229,7 @@ apis.MapGet("/recyclebin", async ([FromServices] ApplicationDbContext dbContext,
     }
 }).Produces<QuerySet<Shared.Models.DocumentInfo>>();
 
-apis.MapPost("/recyclebin/empty", async ([FromServices] ApplicationDbContext dbContext, Guid subscriptionId, HttpRequest request, ILogger<Program> logger) =>
+apis.MapPost("/recyclebin/empty", async ([FromServices] ApplicationDbContext dbContext, Guid subscriptionId, ILogger<Program> logger) =>
 {
     if (subscriptionId == Guid.Empty)
     {
@@ -277,7 +277,7 @@ apis.MapPost("/recyclebin/empty", async ([FromServices] ApplicationDbContext dbC
 
 });
 
-apis.MapPost("/recyclebin/restore", async ([FromServices] ApplicationDbContext dbContext, [FromRoute] Guid subscriptionId, [FromBody] Restore model, HttpRequest request) =>
+apis.MapPost("/recyclebin/restore", async ([FromServices] ApplicationDbContext dbContext, [FromRoute] Guid subscriptionId, [FromBody] RecycleBinItem model, HttpRequest request) =>
 {
     if (model.Items == null || !model.Items.Any())
     {
@@ -301,6 +301,53 @@ apis.MapPost("/recyclebin/restore", async ([FromServices] ApplicationDbContext d
         });
 
     return Results.Ok();
+});
+
+apis.MapPost("/recyclebin/purge", async([FromServices] ApplicationDbContext dbContext, Guid subscriptionId, [FromBody] RecycleBinItem model, ILogger<Program> logger) =>
+{
+    if (model.Items == null || !model.Items.Any())
+    {
+        return Results.ValidationProblem(new Dictionary<string, string[]> { { "items", new[] { "No items specified for deletion." } } });
+    }
+
+    try
+    {
+        var pendingPurge = dbContext.PendingPurge.IgnoreQueryFilters()
+            .Where(x => x.SubscriptionId == subscriptionId)
+            .Select(x => x.ReferenceId);
+
+        var containers = dbContext.Containers.IgnoreQueryFilters().Where(x => x.SubscriptionId == subscriptionId && x.IsDeleted && !pendingPurge.Contains(x.Id) && model.Items.Contains(x.Id));
+
+        if (await containers.AnyAsync())
+        {
+            await dbContext.PendingPurge.AddRangeAsync(containers.Select(c => new PendingPurge
+            {
+                ReferenceId = c.Id,
+                SubscriptionId = subscriptionId,
+                EntityType = PendingPurgeEntityType.Container
+            }));
+            await dbContext.SaveChangesAsync();
+        }
+
+        var documents = dbContext.Documents.IgnoreQueryFilters().Where(x => x.SubscriptionId == subscriptionId && x.IsDeleted && !pendingPurge.Contains(x.Id) && model.Items.Contains(x.Id));
+
+        if (await documents.AnyAsync())
+        {
+            await dbContext.PendingPurge.AddRangeAsync(documents.Select(d => new PendingPurge
+            {
+                ReferenceId = d.Id,
+                SubscriptionId = subscriptionId,
+                EntityType = PendingPurgeEntityType.Document
+            }));
+            await dbContext.SaveChangesAsync();
+        }
+        return Results.Ok();
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Error emptying recycle bin for subscription {SubscriptionId}", subscriptionId);
+        return Results.Problem("An error occurred while emptying the recycle bin.");
+    }
 });
 
 /// Get Container details

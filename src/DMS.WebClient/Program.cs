@@ -25,7 +25,7 @@ builder.Services.AddScoped<AuthenticationStateProvider, CookieAuthenticationStat
 
 builder.Services.AddScoped<IAccountManagement, CookieAuthenticationStateProvider>();
 
-builder.Services.AddScoped<IDocumentService, ContainerService>();
+builder.Services.AddScoped<IDocumentService, DocumentService>();
 
 builder.Services.AddMudServices(config =>
 {

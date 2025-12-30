@@ -16,13 +16,16 @@ namespace DMS.WebClient.Authentication
         bool _IsAuthenticated = false;
         private readonly ClaimsPrincipal _Unauthenticated = new(new ClaimsIdentity());
         private readonly JsonSerializerOptions jsonSerializerOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+
+        public List<Subscription> Subscriptions { get; set; } = new();
+
         public override async Task<AuthenticationState> GetAuthenticationStateAsync()
         {
             _IsAuthenticated = false;
 
             // default to not authenticated
             var user = _Unauthenticated;
-
+            Subscriptions.Clear();
             try
             {
                 // the user info endpoint is secured, so if the user isn't logged in this will fail
@@ -40,34 +43,8 @@ namespace DMS.WebClient.Authentication
                         new("FullName", userInfo.FullName)
                     };
 
-                    // add any additional claims
-                    //claims.AddRange(
-                    //    userInfo.Claims.Where(c => c.Key != ClaimTypes.Name && c.Key != ClaimTypes.Email)
-                    //        .Select(c => new Claim(c.Key, c.Value)));
+                    claims.AddRange(userInfo.Subscriptions.Select(x => new Claim("SubscriptionId", $"{x.Id}")));
 
-                    //// request the roles endpoint for the user's roles
-                    //using var rolesResponse = await httpClient.GetAsync("roles");
-
-                    //// throw if request fails
-                    //rolesResponse.EnsureSuccessStatusCode();
-
-                    //// read the response into a string
-                    //var rolesJson = await rolesResponse.Content.ReadAsStringAsync();
-
-                    //// deserialize the roles string into an array
-                    //var roles = JsonSerializer.Deserialize<RoleClaim[]>(rolesJson, jsonSerializerOptions);
-
-                    //// add any roles to the claims collection
-                    //if (roles?.Length > 0)
-                    //{
-                    //    foreach (var role in roles)
-                    //    {
-                    //        if (!string.IsNullOrEmpty(role.Type) && !string.IsNullOrEmpty(role.Value))
-                    //        {
-                    //            claims.Add(new Claim(role.Type, role.Value, role.ValueType, role.Issuer, role.OriginalIssuer));
-                    //        }
-                    //    }
-                    //}
 
                     // set the principal
                     var id = new ClaimsIdentity(claims, nameof(CookieAuthenticationStateProvider));

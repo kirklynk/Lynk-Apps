@@ -2,9 +2,9 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace Shared.Requests
+namespace Shared.Models
 {
-    public class Restore
+    public class RecycleBinItem
     {
         public List<Guid> Items { get; set; } = [];
     }

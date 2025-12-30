@@ -1,14 +1,13 @@
 ﻿using DMS.WebClient.Models;
 using Shared.Common.Interfaces;
 using Shared.Models;
-using Shared.Requests;
 using System.Net.Http.Json;
 
 namespace DMS.WebClient.Services
 {
-    public class ContainerService(IHttpClientFactory factory, ILogger<ContainerService> logger) : IDocumentService
+    public class DocumentService(IHttpClientFactory factory, ILogger<DocumentService> logger) : IDocumentService
     {
-        HttpClient _httpClient => factory.CreateClient("backend");
+        readonly HttpClient _httpClient = factory.CreateClient("backend");
 
         public async Task<DocumentInfo?> CreateContainerAsync(Guid subscriptionId, CreateContainer Container)
         {
@@ -23,9 +22,10 @@ namespace DMS.WebClient.Services
             }
             catch (HttpRequestException hre)
             {
-                var content = await response.Content.ReadFromJsonAsync<ProblemDetails>();
-                logger.LogError("Error creating container {ContainerName}: {ErrorDetail}", Container.Name, content?.Detail ?? hre.Message);
-                throw new ApplicationException(content?.Detail ?? hre.Message, hre);
+                //var content = await response.Content.ReadFromJsonAsync<ProblemDetail>();
+                //logger.LogError("Error creating container {ContainerName}: {ErrorDetail}", Container.Name, content?.Detail ?? hre.Message);
+                //throw new ApplicationException(content?.Detail ?? hre.Message, hre);
+                throw;
             }
             catch (Exception)
             {
@@ -52,26 +52,21 @@ namespace DMS.WebClient.Services
             return await response.Content.ReadFromJsonAsync<DocumentInfo>();
         }
 
+        public async Task PurgeRecycleBinItemsAsync(Guid subscriptionId, RecycleBinItem model)
+        {
+            string url = $"/dms/api/{subscriptionId}/documents/recyclebin/purge";
+            var response = await _httpClient.PostAsJsonAsync(url, model);
+            response.EnsureSuccessStatusCode();
+        }
+
         public async Task<QuerySet<DocumentInfo>> QueryAsync(Guid subscriptionId, Guid? ContainerId = null, int skip = 0, int take = 10, string search = "", string? orderBy = null, bool descending = false, CancellationToken cancellationToken = default)
         {
-
             logger.LogDebug("Querying documents in subscription {SubscriptionId} ContainerId: {ContainerId} Skip: {Skip} Take: {Take} Search: {Search} OrderBy: {OrderBy} Descending: {Descending}",
                 subscriptionId, ContainerId, skip, take, search, orderBy, descending);
 
             string url = ContainerId.HasValue ? $"/dms/api/{subscriptionId}/documents/containers/{ContainerId}" : $"/dms/api/{subscriptionId}/documents";
 
-            var filters = new Dictionary<string, string>();
-            filters["skip"] = skip.ToString();
-            filters["take"] = take.ToString();
-            filters["orderBy"] = orderBy ?? "name";
-            filters["descending"] = descending.ToString();
-
-            string queryString = "";
-            if (!string.IsNullOrEmpty(search))
-            {
-                filters["search"] = search;
-            }
-            queryString = string.Join("&", filters.Select(kvp => $"{kvp.Key}={Uri.EscapeDataString(kvp.Value)}"));
+            string queryString = BuildQueryString(skip, take, orderBy, descending, search);
 
             if (!string.IsNullOrEmpty(queryString))
             {
@@ -96,21 +91,9 @@ namespace DMS.WebClient.Services
 
         public async Task<QuerySet<DocumentInfo>> QueryDeletedAsync(Guid subscriptionId, int skip = 0, int take = 10, string search = "", string? orderBy = null, bool descending = false, CancellationToken cancellationToken = default)
         {
-
             string url = $"/dms/api/{subscriptionId}/documents/recyclebin";
 
-            var filters = new Dictionary<string, string>();
-            filters["skip"] = skip.ToString();
-            filters["take"] = take.ToString();
-            filters["orderBy"] = orderBy ?? "name";
-            filters["descending"] = descending.ToString();
-
-            string queryString = "";
-            if (!string.IsNullOrEmpty(search))
-            {
-                filters["search"] = search;
-            }
-            queryString = string.Join("&", filters.Select(kvp => $"{kvp.Key}={Uri.EscapeDataString(kvp.Value)}"));
+            string queryString = BuildQueryString(skip, take, orderBy, descending, search);
 
             if (!string.IsNullOrEmpty(queryString))
             {
@@ -121,11 +104,28 @@ namespace DMS.WebClient.Services
             return response;
         }
 
-        public async Task RestoreAsync(Guid subscriptionId, Restore model)
+        public async Task RestoreAsync(Guid subscriptionId, RecycleBinItem model)
         {
             var response = await _httpClient.PostAsJsonAsync($"/dms/api/{subscriptionId}/documents/recyclebin/restore", model);
             response.EnsureSuccessStatusCode();
         }
 
+        private static string BuildQueryString(int skip, int take, string? orderBy, bool descending, string search = "")
+        {
+            var filters = new Dictionary<string, string>
+            {
+                ["skip"] = skip.ToString(),
+                ["take"] = take.ToString(),
+                ["orderBy"] = orderBy ?? "name",
+                ["descending"] = descending.ToString()
+            };
+
+            if (!string.IsNullOrEmpty(search))
+            {
+                filters["search"] = search;
+            }
+
+            return string.Join("&", filters.Select(kvp => $"{kvp.Key}={Uri.EscapeDataString(kvp.Value)}"));
+        }
     }
 }

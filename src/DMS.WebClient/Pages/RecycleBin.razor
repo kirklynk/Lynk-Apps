@@ -1,19 +1,18 @@
 ﻿@page "/recyclebin"
-@using Shared.Requests
 @inject ILogger<RecycleBin> _logger
 
 <MudPaper Elevation="0" Style="margin-bottom: 5px;">
-    <MudBreadcrumbs Items="@([new BreadcrumbItem("", href: "/", icon: Icons.Material.Filled.Home)])"></MudBreadcrumbs>
+    <MudBreadcrumbs Items="@([new BreadcrumbItem("", href: "/", icon: Icons.Material.Filled.Home), new BreadcrumbItem("Recycle Bin", href: "/recyclebin", disabled: true)])"></MudBreadcrumbs>
     <MudText Style="font-size: 20px; padding-left: 10px;">Recycle bin</MudText>
 </MudPaper>
 
 <p class="mb-4">
     <MudStack Row="true" Class="fullwidth" Style="width: 100%;">
-        <MudButton Variant="Variant.Text" Color="Color.Default" StartIcon="@Icons.Material.Outlined.DeleteForever" DropShadow="true" OnClick="EmptyRecycleBinAsync" Disabled="_isEmpty">Empty recycle bin</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Default" DropShadow="true" OnClick="EmptyRecycleBinAsync" Disabled="_isEmpty">Empty recycle bin</MudButton>
         @if (_selected.Count > 0)
         {
-            <MudButton Variant="Variant.Text" Color="Color.Default" StartIcon="@Icons.Material.Outlined.Restore" DropShadow="true" OnClick="@(async () => await RestoreAsync(new Restore() { Items = _selected.Select(x => x.Id).ToList() }))">Restore selected</MudButton>
-            <MudButton Variant="Variant.Text" Color="Color.Default" StartIcon="@Icons.Material.Outlined.DeleteForever" DropShadow="true">Delete selected</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Default" StartIcon="@Icons.Material.Outlined.Restore" DropShadow="true" OnClick="@(async () => await RestorePurgeAsync(new RecycleBinItem() { Items = _selected.Select(x => x.Id).ToList() }))">Restore selected</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Default" StartIcon="@Icons.Material.Outlined.DeleteForever" DropShadow="true" OnClick="@(async () => await RestorePurgeAsync(new RecycleBinItem() { Items = _selected.Select(x => x.Id).ToList() }, true))">Delete selected</MudButton>
         }
     </MudStack>
 </p>
@@ -43,7 +42,7 @@
                             <MudIconButton Icon="@Icons.Material.Filled.MoreVert" Color="Color.Inherit" Edge="Edge.End" />
                         </ActivatorContent>
                         <ChildContent>
-                            <MudMenuItem Label="Restore" Icon="@Icons.Material.Filled.Restore" OnClick="@(async () => await RestoreAsync(new Restore(){ Items = new List<Guid> { context.Item.Id } }))" />
+                            <MudMenuItem Label="Restore" Icon="@Icons.Material.Filled.Restore" OnClick="@(async () => await RestorePurgeAsync(new RecycleBinItem() { Items = new List<Guid> { context.Item.Id } }))" />
 
                         </ChildContent>
                     </MudMenu>
@@ -116,7 +115,7 @@
         };
     }
 
-    async Task RestoreAsync(Restore restore)
+    async Task RestorePurgeAsync(RecycleBinItem restore, bool shouldPurge = false)
     {
         _isLoading = true;
         _selected.Clear();
@@ -125,8 +124,23 @@
         _snackbar?.Configuration.PositionClass = Defaults.Classes.Position.BottomRight;
         try
         {
-            await _fileProvider.RestoreAsync(SubscriptionId, restore);
-            _snackbar?.Add("Items restored successfully.", Severity.Success, configure: op =>
+            if (shouldPurge)
+            {
+                var result = await _mudMessageBox.ShowAsync();
+                if (result == true)
+                {
+                    await _fileProvider.PurgeRecycleBinItemsAsync(SubscriptionId, restore);
+                }
+                else
+                {
+                    return;
+                }
+            }
+            else
+                await _fileProvider.RestoreAsync(SubscriptionId, restore);
+            var action = shouldPurge ? "purged" : "restored";
+
+            _snackbar?.Add($"Items {action} successfully.", Severity.Success, configure: op =>
                 {
                     op.VisibleStateDuration = 1500;
                 });
@@ -137,6 +151,7 @@
         }
         catch (Exception ex)
         {
+            _snackbar?.Add($"Error: {ex.Message}", Severity.Error);
         }
         finally
         {

@@ -73,7 +73,7 @@ builder.Services.AddReverseProxy()
             ctx.ProxyRequest.Headers.Add("X-Gateway-Auth", "true");
 
             var user = ctx.HttpContext.User;
-            
+
             if (user.Identity?.IsAuthenticated == true)
             {
                 ctx.ProxyRequest.Headers.Add(
@@ -118,9 +118,10 @@ app.MapGet("/app/user/info", async (HttpRequest request, [FromServices] UserMana
     var userEntity = await userManager.FindByNameAsync(user) ?? throw new NotFoundException();
     var userLogins = await dbContext.UserClaims.Where(uc => uc.UserId == userEntity.Id).ToListAsync();
 
-    var subscriptions = await dbContext.Users.Include(x => x.Subscriptions)
-           .Where(x => x.Id == userEntity.Id)
-           .SelectMany(x => x.Subscriptions).Select(x => new { x.Id, x.Name }).ToListAsync();
+    var subscriptions = await dbContext.Subscriptions.Include(x => x.Users)
+        .Where(s => s.Users.Any(u => u.Id == userEntity.Id))
+        .Select(s => new { s.Id, s.Name })
+        .ToListAsync();
 
     return Results.Ok(new { userEntity.Email, Subscriptions = subscriptions, userEntity.FullName });
 

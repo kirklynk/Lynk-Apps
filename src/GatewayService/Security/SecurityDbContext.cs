@@ -23,7 +23,9 @@ namespace GatewayService.Security
                     r => r.HasOne(typeof(User)).WithMany().HasForeignKey("UserId"),
                     l => l.HasOne(typeof(Subscription)).WithMany().HasForeignKey("SubscriptionId"));
             });
+            
             base.OnModelCreating(builder);
+
         }
     }
 }

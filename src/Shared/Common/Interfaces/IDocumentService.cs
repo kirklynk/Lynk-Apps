@@ -1,5 +1,4 @@
 ﻿using Shared.Models;
-using Shared.Requests;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -20,6 +19,8 @@ namespace Shared.Common.Interfaces
         Task EmptyRecycleBinAsync(Guid subscriptionId);
 
         Task<QuerySet<DocumentInfo>> QueryDeletedAsync(Guid subscriptionId, int skip = 0, int take = 10, string search = "", string? orderBy = null, bool descending = false, CancellationToken cancellationToken = default);
-        Task RestoreAsync(Guid subscriptionId, Restore model);
+        Task RestoreAsync(Guid subscriptionId, RecycleBinItem model);
+
+        Task PurgeRecycleBinItemsAsync(Guid subscriptionId, RecycleBinItem model);
     }
 }
