@@ -23,15 +23,8 @@ builder.Services.AddDbContext<SecurityDbContext>(context =>
 {
     context.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"));
 });
-//builder.Services.AddAuthentication(c =>
-//{
-//    c.DefaultAuthenticateScheme = "Cookies";
-//    c.DefaultChallengeScheme = "Cookies";
-//}).AddCookie("Cookies", c =>
-//{
-//    c.Cookie.Name = builder.Configuration.GetValue<string>("cookies:name");
-//    c.DataProtectionProvider = DataProtectionProvider.Create(builder.Configuration.GetValue<string>("cookies:provider") ?? "lynk_services_cookies");
-//});
+builder.Services.AddHealthChecks()
+    .AddCheck("self", () => Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Healthy());
 
 builder.Services.AddRateLimiter(options =>
 {
@@ -103,7 +96,7 @@ app.UseCors("CorsPolicy");
 
 app.UseAuthentication();
 app.UseAuthorization();
-
+app.MapHealthChecks("/health");
 app.MapIdentityApi<User>();
 
 app.MapGet("/app/user/info", async (HttpRequest request, [FromServices] UserManager<User> userManager, [FromServices] SecurityDbContext dbContext) =>

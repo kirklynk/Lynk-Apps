@@ -1,18 +1,21 @@
 ﻿@page "/recyclebin"
 @inject ILogger<RecycleBin> _logger
+@implements IDisposable
 
 <MudPaper Elevation="0" Style="margin-bottom: 5px;">
     <MudBreadcrumbs Items="@([new BreadcrumbItem("", href: "/", icon: Icons.Material.Filled.Home), new BreadcrumbItem("Recycle Bin", href: "/recyclebin", disabled: true)])"></MudBreadcrumbs>
-    <MudText Style="font-size: 20px; padding-left: 10px;">Recycle bin</MudText>
+    <MudText Style="font-size: 2rem; padding-left: 10px;">Recycle Bin</MudText>
 </MudPaper>
 
 <p class="mb-4">
-    <MudStack Row="true" Class="fullwidth" Style="width: 100%;">
-        <MudButton Variant="Variant.Filled" Color="Color.Default" DropShadow="true" OnClick="EmptyRecycleBinAsync" Disabled="_isEmpty">Empty recycle bin</MudButton>
+    <MudStack Row="true" Class="fullwidth" Style="width: 100%;" Gap="2">
+        <MudButton Variant="Variant.Filled" Color="Color.Error" DropShadow="true" OnClick="EmptyRecycleBinAsync" StartIcon="@Icons.Material.Outlined.Warning" Disabled="_isEmpty">Empty recycle bin</MudButton>
+
         @if (_selected.Count > 0)
-        {
-            <MudButton Variant="Variant.Filled" Color="Color.Default" StartIcon="@Icons.Material.Outlined.Restore" DropShadow="true" OnClick="@(async () => await RestorePurgeAsync(new RecycleBinItem() { Items = _selected.Select(x => x.Id).ToList() }))">Restore selected</MudButton>
-            <MudButton Variant="Variant.Filled" Color="Color.Default" StartIcon="@Icons.Material.Outlined.DeleteForever" DropShadow="true" OnClick="@(async () => await RestorePurgeAsync(new RecycleBinItem() { Items = _selected.Select(x => x.Id).ToList() }, true))">Delete selected</MudButton>
+        {           
+            <MudButton Variant="Variant.Text" Color="Color.Error" StartIcon="@Icons.Material.Outlined.DeleteForever" DropShadow="true" OnClick="@(async () => await RestorePurgeAsync(new RecycleBinItem() { Items = _selected.Select(x => x.Id).ToList() }, true))">Delete forever</MudButton>
+
+            <MudButton Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.Restore" DropShadow="true" OnClick="@(async () => await RestorePurgeAsync(new RecycleBinItem() { Items = _selected.Select(x => x.Id).ToList() }))">Restore</MudButton>
         }
     </MudStack>
 </p>
@@ -20,7 +23,7 @@
 <div>
     <MudDataGrid MultiSelection="true" T="DocumentInfo" Bordered="false" SelectedItems="_selected" FixedHeader="true" Virtualize="true" Outlined="false" ItemSize="20.0f" SortMode="SortMode.Single" Loading="@_isLoading" Height="500px" RowClass="row" VirtualizeServerData="GetDataAsync" @ref="_dataGrid" SelectOnRowClick="true" SelectedItemsChanged="@(() => StateHasChanged())" SelectedItemChanged="@(() => StateHasChanged())">
         <Columns>
-            <SelectColumn ShowInHeader="false" T="DocumentInfo" />
+            <SelectColumn ShowInHeader="false" />
             <TemplateColumn CellStyle="width: 24px;">
                 <CellTemplate>
                     @if (context.Item.IsContainer)
@@ -34,7 +37,14 @@
                 </CellTemplate>
             </TemplateColumn>
             <PropertyColumn Property="x => x.Name" SortBy="x => x.IsContainer" />
-            <PropertyColumn Property="x => x.DeletedOn" SortBy="x => x.IsContainer" />
+            <TemplateColumn Title="Deleted On" UserAttributes="@(new() { { "title", "Deleted On" } })" SortBy="x => x.IsContainer">
+                <CellTemplate>
+                    @{
+                        var time = context!.Item!.DeletedOn!.Value.Add(TimeOffset);
+                        <text>@time.ToString("g")</text>
+                    }
+                </CellTemplate>
+            </TemplateColumn>
             <TemplateColumn CellStyle="width: 24px;">
                 <CellTemplate>
                     <MudMenu AnchorOrigin="Origin.CenterLeft" Color="Color.Primary" Disabled="_dataGrid?.SelectedItems.Count > 0">
@@ -48,14 +58,11 @@
                     </MudMenu>
                 </CellTemplate>
             </TemplateColumn>
+
         </Columns>
         <NoRecordsContent>
-            <EmptyContent>
-                The recycle bin is empty.
-            </EmptyContent>
+            <EmptyContent />
         </NoRecordsContent>
-        <Header>
-        </Header>
     </MudDataGrid>
 </div>
 
@@ -73,12 +80,15 @@
     [CascadingParameter(Name = "SubscriptionId")]
     public Guid SubscriptionId { get; set; }
 
+    [CascadingParameter(Name = "TimeOffset")]
+    public TimeSpan TimeOffset { get; set; }
+
     MudDataGrid<DocumentInfo>? _dataGrid;
     MudMessageBox? _mudMessageBox;
     bool _isLoading = true;
     bool _isEmpty = true;
     HashSet<DocumentInfo> _selected = [];
-
+    CancellationTokenSource _cts = new();
     async Task<GridData<DocumentInfo>> GetDataAsync(GridStateVirtualize<DocumentInfo> request, CancellationToken token)
     {
         _isLoading = true;
@@ -90,7 +100,7 @@
 
             var sort = request.SortDefinitions.FirstOrDefault();
 
-            var query = await _fileProvider.QueryDeletedAsync(SubscriptionId, skip: request.StartIndex, take: request.Count, orderBy: sort?.SortBy, descending: sort != null ? !sort.Descending : false);
+            var query = await _fileProvider.QueryDeletedAsync(SubscriptionId, skip: request.StartIndex, take: request.Count, orderBy: sort?.SortBy, descending: sort != null ? !sort.Descending : false, cancellationToken: token);
             _isEmpty = query.TotalCount == 0;
             return new GridData<DocumentInfo>
             {
@@ -100,7 +110,10 @@
         }
         catch (Exception ex)
         {
-
+            if (ex is not OperationCanceledException)
+            {
+                _snackbar?.Add($"Error loading recycle bin items.", Severity.Error);
+            }
         }
         finally
         {
@@ -117,33 +130,39 @@
 
     async Task RestorePurgeAsync(RecycleBinItem restore, bool shouldPurge = false)
     {
-        _isLoading = true;
-        _selected.Clear();
-        StateHasChanged();
         _snackbar?.Clear();
-        _snackbar?.Configuration.PositionClass = Defaults.Classes.Position.BottomRight;
+
+        var action = shouldPurge ? "purged" : "restored";
         try
         {
             if (shouldPurge)
             {
                 var result = await _mudMessageBox.ShowAsync();
-                if (result == true)
-                {
-                    await _fileProvider.PurgeRecycleBinItemsAsync(SubscriptionId, restore);
-                }
-                else
-                {
+                if (result != true)
                     return;
-                }
+
+                await _fileProvider.PurgeRecycleBinItemsAsync(SubscriptionId, restore, _cts.Token);
             }
             else
-                await _fileProvider.RestoreAsync(SubscriptionId, restore);
-            var action = shouldPurge ? "purged" : "restored";
+            {
+                var result = await _dialogService.ShowMessageBox(
+                    "Restore items",
+                    "Are you sure you want to restore the selected items?",
+                    yesText: "Restore",
+                    cancelText: "Cancel");
 
-            _snackbar?.Add($"Items {action} successfully.", Severity.Success, configure: op =>
-                {
-                    op.VisibleStateDuration = 1500;
-                });
+                if (result != true)
+                    return;
+
+                await _fileProvider.RestoreAsync(SubscriptionId, restore, _cts.Token);
+            }
+
+            _isLoading = true;
+            _selected.Clear();
+            StateHasChanged();
+
+            _snackbar?.Add($"Items {action} successfully.", Severity.Success);
+
             if (_dataGrid != null)
             {
                 await _dataGrid.ReloadServerData();
@@ -151,13 +170,19 @@
         }
         catch (Exception ex)
         {
-            _snackbar?.Add($"Error: {ex.Message}", Severity.Error);
+            _snackbar?.Add($"An error occurred while {action} items.", Severity.Error);
         }
         finally
         {
             _isLoading = false;
             StateHasChanged();
         }
+    }
+
+    public void Dispose()
+    {
+        _cts?.Cancel();
+        _cts?.Dispose();
     }
 
     async Task EmptyRecycleBinAsync()
@@ -167,7 +192,8 @@
             var result = await _mudMessageBox.ShowAsync();
             if (result == true)
             {
-                await _fileProvider.EmptyRecycleBinAsync(SubscriptionId);
+                _selected?.Clear();
+                await _fileProvider.EmptyRecycleBinAsync(SubscriptionId, _cts.Token);
                 await _dataGrid!.ReloadServerData();
             }
             StateHasChanged();

@@ -1,6 +1,7 @@
 ﻿using DocumentManagementService.Data;
 using DocumentManagementService.Domain;
 using Microsoft.EntityFrameworkCore;
+using Shared.Common.Enums;
 
 namespace DocumentManagementService.Services
 {
@@ -30,14 +31,14 @@ namespace DocumentManagementService.Services
             using var scope = serviceProvider.CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
-            var pendingDocumentDeletions = await dbContext.PendingPurge.Where(pp => pp.EntityType == PendingPurgeEntityType.Document)
+            var pendingDocumentDeletions = await dbContext.PendingPurge.Where(pp => pp.EntityType == EntityType.Document)
                 .AsNoTracking()
                 .Select(x => x.ReferenceId)
                 .ToListAsync();
 
             await ExecuteDeleteDocumentsAsync(dbContext, pendingDocumentDeletions);
 
-            var pendingContainerDeletions = await dbContext.PendingPurge.Where(pp => pp.EntityType == PendingPurgeEntityType.Container)
+            var pendingContainerDeletions = await dbContext.PendingPurge.Where(pp => pp.EntityType == EntityType.Container)
                 .AsNoTracking()
                 .Select(x => x.ReferenceId)
                 .ToListAsync();

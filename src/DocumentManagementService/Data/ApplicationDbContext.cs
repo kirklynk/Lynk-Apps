@@ -12,9 +12,9 @@ namespace DocumentManagementService.Data
 
         public DbSet<LynkDocument> Documents { get; set; }
         public DbSet<LynkContainer> Containers { get; set; }
-        public DbSet<Tag> Tags { get; set; }
-
+        public DbSet<LynkTag> Tags { get; set; }
         public DbSet<PendingPurge> PendingPurge { get; set; }
+        public DbSet<LynkShare> Shares { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -38,7 +38,7 @@ namespace DocumentManagementService.Data
                 e.HasQueryFilter(x => x.IsDeleted == false);
             });
 
-            modelBuilder.Entity<Tag>(e =>
+            modelBuilder.Entity<LynkTag>(e =>
             {
                 e.HasKey(t => t.Id);
             });
@@ -46,6 +46,17 @@ namespace DocumentManagementService.Data
             modelBuilder.Entity<PendingPurge>(e =>
             {
                 e.HasKey(r => r.ReferenceId);
+                e.Property(r => r.EntityType)
+                .HasConversion<int>()
+                .HasColumnName("EntityTypeId");
+            });
+
+            modelBuilder.Entity<LynkShare>(e =>
+            {
+                e.HasKey(s => s.Id);
+                e.Property(s => s.EntityType)
+                    .HasConversion<int>()
+                    .HasColumnName("EntityTypeId");
             });
 
             base.OnModelCreating(modelBuilder);

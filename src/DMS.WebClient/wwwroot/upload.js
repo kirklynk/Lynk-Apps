@@ -1,46 +1,57 @@
 ﻿const controller = new AbortController();
-export function uploadFile(elementId, url, containerId, dotNetRef) {
+const signal = controller.signal;
 
-    const signal = controller.signal;
+let inputElement;
+let _ref;
+let _containerId;
+let _url;
 
-    let inputElement = document.getElementById(elementId);
-    if (inputElement) {
-        inputElement.value = null; // Reset the input value to allow re-uploading the same file
-        inputElement.addEventListener('change', async (event) => {
-            try {
-                var files = event.target.files;
+export function initializeUploader(elementId, dotNetRef) {
+    _ref = dotNetRef;
+    inputElement = document.getElementById(elementId);
+    inputElement.addEventListener('change', async (event) => {
+        console.log("File input changed");
+        try {
+            var files = event.target.files;
 
-                if (files.length > 0) {
-                    for (const file of files) {
+            if (files.length > 0) {
+                for (const file of files) {
 
-                        if (url) {
-                            let response = await fetch(url, {
-                                method: 'POST',
-                                body: file,
-                                headers: {
-                                    "Content-Type": "application/octet-stream",
-                                    "X-File-Name": encodeURIComponent(file.name),
-                                    "X-File-Size": file.size,
-                                    "X-ContainerId": containerId,
-                                    "X-File-Type": file.type,
-                                    "Content-Length": file.size,
-                                    "X-Last-Modified": file.lastModified ? new Date(file.lastModified).toUTCString() : new Date().toUTCString()
-                                }
-                            });
-                            
-                            if (response.ok) {
-                                await dotNetRef.invokeMethodAsync('onFileUploadCompleted', true);
-                            } else {
-                                await dotNetRef.invokeMethodAsync('onFileUploadCompleted', false);
+                    if (_url) {
+                        let response = await fetch(_url, {
+                            method: 'POST',
+                            body: file,
+                            headers: {
+                                "Content-Type": "application/octet-stream",
+                                "X-File-Name": encodeURIComponent(file.name),
+                                "X-File-Size": file.size,
+                                "X-ContainerId": _containerId,
+                                "X-File-Type": file.type,
+                                "Content-Length": file.size,
+                                "X-Last-Modified": file.lastModified ? new Date(file.lastModified).toUTCString() : new Date().toUTCString()
                             }
+                        });
+
+                        if (response.ok) {
+                            await _ref.invokeMethodAsync('onFileUploadCompleted', true);
+                        } else {
+                            await _ref.invokeMethodAsync('onFileUploadCompleted', false);
                         }
                     }
                 }
-            } finally {
-                controller.abort();
             }
+        } finally {
+            controller.abort();
+        }
+    }, { signal });
+}
+export function uploadFile(url, containerId) {
 
-        }, { signal });
+    _containerId = containerId;
+    _url = url;
+    if (inputElement) {
+        inputElement.value = null; // Reset the input value to allow re-uploading the same file
+
         inputElement.click();
     }
 }   

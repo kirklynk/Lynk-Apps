@@ -1,7 +1,9 @@
 ﻿@using System.Security.Principal
 @inherits LayoutComponentBase
+@inject SettingsService _settingsService
+
 @* Required *@
-<MudThemeProvider />
+<MudThemeProvider Theme="_myCustomTheme" IsDarkMode="_appSettings.IsDarkMode" />
 <MudPopoverProvider />
 @* Needed for dialogs *@
 <MudDialogProvider />
@@ -11,41 +13,44 @@
 <CascadingValue Value="SubscriptionId" Name="SubscriptionId">
     <CascadingValue Value="ContainerId" Name="ContainerId">
         <CascadingValue Value="User" Name="User">
-            <MudLayout>
-                <MudAppBar Elevation="0" Class="menu-background" Color="Color.Tertiary">
-                    <MudIconButton Icon="@Icons.Material.Outlined.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@((e) => DrawerToggle())" />
-                    <MudText Typo="Typo.h5" Class="ml-3">Lynk Cloud Sync</MudText>
-                    <MudSpacer />
-                    <MudIconButton Icon="@Icons.Material.Outlined.Logout" Color="Color.Inherit" Edge="Edge.End" OnClick="LogoutAsync" />
-                </MudAppBar>
-                <AuthorizeView>
-                    <Authorized>
-                        <MudDrawer Class="menu-background" @bind-Open="_drawerOpen" Elevation="1" ClipMode="DrawerClipMode.Always" Variant="DrawerVariant.Mini" Color="Color.Default">
-                            <MudSpacer />
-                            <MudNavMenu>
-                                <MudNavLink Match="NavLinkMatch.All" Icon="@Icons.Material.Outlined.Home" Href="/" ForceLoad="true">Home</MudNavLink>
-                                <MudNavLink Match="NavLinkMatch.All" Icon="@Icons.Material.Outlined.Folder" Href="/view/0" ForceLoad="true" title="My files">My Files</MudNavLink>
-                                <MudNavLink Match="NavLinkMatch.All" Icon="@Icons.Material.Outlined.People" Href="/shared" title="Shared" ForceLoad="true">Shared</MudNavLink>
-                                <MudNavLink Match="NavLinkMatch.All" Icon="@Icons.Material.Outlined.Delete" Href="/recyclebin" title="Recycle Bin">Recycle Bin</MudNavLink>
-                            </MudNavMenu>
-                            <MudSpacer />
-                            <MudNavMenu>
-                                <MudNavLink Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Outlined.Settings" Href="/settings" title="Settings">Settings</MudNavLink>
-                                <MudNavLink Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Outlined.Logout" OnClick="LogoutAsync" title="Logout">Logout</MudNavLink>
-                            </MudNavMenu>
-                        </MudDrawer>
-                    </Authorized>
-                </AuthorizeView>
-                <MudMainContent>
-                    <div style="padding: 2rem;">
-                        @Body
-                    </div>
-                </MudMainContent>
-            </MudLayout>
+            <CascadingValue Value="TimeOffset" Name="TimeOffset">
+                <MudLayout>
+                    <MudAppBar Elevation="0" Class="menu-background" Color="Color.Tertiary">
+                        <MudIconButton Icon="@Icons.Material.Outlined.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@((e) => DrawerToggle())" />
+                        <MudText Typo="Typo.h5" Class="ml-3">Lynk Document Management System</MudText>
+                        <MudSpacer />
+                        <MudSwitch T="bool" Value="_appSettings.IsDarkMode" TriState="false" ValueChanged="SaveModeAsync" Label="Dark Mode" title="Enable dark mode" />
+                        <MudIconButton Icon="@Icons.Material.Outlined.Logout" Color="Color.Inherit" Edge="Edge.End" OnClick="LogoutAsync" />
+
+                    </MudAppBar>
+                    <AuthorizeView>
+                        <Authorized>
+                            <MudDrawer Class="menu-background" @bind-Open="_drawerOpen" Elevation="1" ClipMode="DrawerClipMode.Always" Variant="DrawerVariant.Mini" Color="Color.Default">
+                                <MudSpacer />
+                                <MudNavMenu>
+                                    <MudNavLink Match="NavLinkMatch.All" Icon="@Icons.Material.Outlined.Home" Href="/" ForceLoad="true">Home</MudNavLink>
+                                    <MudNavLink Match="NavLinkMatch.All" Icon="@Icons.Material.Outlined.Folder" Href="/view/0" ForceLoad="true" title="My files">My Files</MudNavLink>
+                                    <MudNavLink Match="NavLinkMatch.All" Icon="@Icons.Material.Outlined.People" Href="/shared" title="Shared" ForceLoad="true">Shared</MudNavLink>
+                                    <MudNavLink Match="NavLinkMatch.All" Icon="@Icons.Material.Outlined.Delete" Href="/recyclebin" title="Recycle Bin">Recycle Bin</MudNavLink>
+                                </MudNavMenu>
+                                <MudSpacer />
+                                <MudNavMenu>
+                                    <MudNavLink Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Outlined.Settings" Href="/settings" title="Settings">Settings</MudNavLink>
+                                    <MudNavLink Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Outlined.Logout" OnClick="LogoutAsync" title="Logout">Logout</MudNavLink>
+                                </MudNavMenu>
+                            </MudDrawer>
+                        </Authorized>
+                    </AuthorizeView>
+                    <MudMainContent>
+                        <div style="padding: 2rem;">
+                            @Body
+                        </div>
+                    </MudMainContent>
+                </MudLayout>
+            </CascadingValue>
         </CascadingValue>
     </CascadingValue>
 </CascadingValue>
-
 
 @code {
 
@@ -53,9 +58,26 @@
 
     public Guid? ContainerId { get; set; }
 
-    public Guid SubscriptionId { get; set; } 
+    public Guid SubscriptionId { get; set; }
 
     public string? User { get; set; }
+
+    public TimeSpan TimeOffset { get; set; }
+
+    Settings _appSettings = new();
+
+    MudTheme _myCustomTheme = new MudTheme()
+    {
+        Typography = new Typography()
+        {
+            Button = new ButtonTypography()
+            {
+                TextTransform = "none",
+                FontSize = "1.1rem",
+                FontWeight = "200"
+            }
+        }
+    };
 
     void DrawerToggle()
     {
@@ -72,10 +94,29 @@
         }
     }
 
+    protected async override Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var timeOffset = await _jsRuntime.InvokeAsync<double>("getLocalOffset");
+            TimeOffset = TimeSpan.FromMinutes(timeOffset * -1.0);
+            _appSettings = await _settingsService.GetSettingsAsync();
+            StateHasChanged();
+        }
+    }
+
     async Task LogoutAsync()
     {
         await _accountManagement.LogoutAsync();
         _navigationManager.NavigateTo("/", forceLoad: true);
+    }
+
+
+    async Task SaveModeAsync(bool isDarkMode)
+    {
+        _appSettings.IsDarkMode = isDarkMode;
+        await _settingsService.SaveSettingsAsync(_appSettings);
+        StateHasChanged();
     }
 }
 

@@ -3,6 +3,8 @@ using DocumentManagementService.Domain;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Shared.Common.Enums;
+using Shared.Common.Interfaces;
 using Shared.Models;
 using System.Linq;
 
@@ -12,17 +14,14 @@ var builder = WebApplication.CreateBuilder(args);
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
-//builder.Services.AddAuthentication().AddCookie(c =>
-//{
-//    c.Cookie.Name = "LynkAuthCookie";
-//    c.Cookie.SameSite = SameSiteMode.Lax;
-//    c.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-//});
 
 builder.Services.AddDbContextPool<ApplicationDbContext>(o =>
 {
     o.UseSqlServer(builder.Configuration.GetConnectionString("DmsDbConnection"));
 });
+builder.Services.AddScoped<IDocumentService, DocumentManagementService.Services.DocumentService>();
+builder.Services.AddScoped<ISharingService, DocumentManagementService.Services.SharingService>();
+builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddOutputCache(options =>
 {
@@ -30,7 +29,7 @@ builder.Services.AddOutputCache(options =>
         builder.Expire(TimeSpan.FromSeconds(10)));
 });
 
-builder.Services.AddHostedService<DocumentManagementService.Services.CleanUpService>();
+//builder.Services.AddHostedService<DocumentManagementService.Services.CleanUpService>();
 
 var app = builder.Build();
 
@@ -55,10 +54,11 @@ app.Use(async (ctx, next) =>
     await next();
 });
 
-var apis = app.MapGroup("/api/{subscriptionId}/documents");
+#region Document APIs
+var documentApis = app.MapGroup("/api/{subscriptionId}/documents");
 
-/// Get root Container contents
-apis.MapGet("/", async ([FromServices] ApplicationDbContext dbContext, Guid subscriptionId, HttpRequest request, [FromQuery] bool descending = false, [FromQuery] string? search = null, [FromQuery] string OrderBy = nameof(DocumentInfo.Name), [FromQuery] int skip = 0, [FromQuery] int take = 25, CancellationToken cancellationToken = default) =>
+/// Get root contents
+documentApis.MapGet("/", async ([FromServices] ApplicationDbContext dbContext, [FromServices] IDocumentService documentService, Guid subscriptionId, HttpRequest request, [FromQuery] bool descending = false, [FromQuery] string? search = null, [FromQuery] string orderBy = nameof(DocumentInfo.Name), [FromQuery] int skip = 0, [FromQuery] int take = 25, CancellationToken cancellationToken = default) =>
 {
     try
     {
@@ -67,52 +67,19 @@ apis.MapGet("/", async ([FromServices] ApplicationDbContext dbContext, Guid subs
 
         if (take > 100) take = 100;
 
-        var userName = request.HttpContext?.User.Identity?.Name;
-        var Containers = dbContext.Containers
-            .Where(f => f.SubscriptionId == subscriptionId && f.ParentId == null)
-            .Select(f => new { f.Id, f.Name, IsContainer = true, f.ModifiedOn, Type = "" });
+        // var userName = request.HttpContext?.User.Identity?.Name;
 
-        var documents = dbContext.Documents.Where(d => d.SubscriptionId == subscriptionId && d.ContainerId == null)
-            .Select(d => new { d.Id, d.Name, IsContainer = false, d.ModifiedOn, d.Type });
-
-        var query = Containers.Union(documents);
-
-        if (!string.IsNullOrEmpty(search))
-        {
-            query = query.Where(f => f.Name.Contains(search));
-        }
-
-        query = OrderBy.ToLower() switch
-        {
-            "name" => !descending ? query.OrderByDescending(x => x.IsContainer).ThenBy(f => f.Name) : query.OrderByDescending(x => x.IsContainer).ThenByDescending(f => f.Name),
-            "modifiedon" => !descending ? query.OrderByDescending(x => x.IsContainer).ThenBy(f => f.ModifiedOn) : query.OrderByDescending(x => x.IsContainer).ThenByDescending(f => f.ModifiedOn),
-            _ => query.OrderBy(f => f.Name)
-        };
-
-        var count = await query.CountAsync();
-        query = query.Skip(skip).Take(take);
-        var items = await query.Select(x => new DocumentInfo
-        {
-            Id = x.Id,
-            Name = x.Name,
-            IsContainer = x.IsContainer,
-            ModifiedOn = x.ModifiedOn
-        }).ToListAsync();
-
-        return Results.Ok(new QuerySet<DocumentInfo>
-        {
-            Items = items,
-            TotalCount = count
-        });
+        var result = await documentService.QueryContentAsync(subscriptionId, null, skip, take, search, orderBy, descending, cancellationToken);
+        return Results.Ok(result);
     }
     catch (Exception)
     {
-        return Results.Problem("An error occurred while creating the Container.");
+        return Results.Problem("Error occurred while retrieving content.");
     }
 }).Produces<QuerySet<Shared.Models.DocumentInfo>>();
 
 /// Get Container contents
-apis.MapGet("/containers/{id}", async ([FromServices] ApplicationDbContext dbContext, Guid subscriptionId, Guid id, HttpRequest request, [FromQuery] bool descending = false, [FromQuery] string? search = null, [FromQuery] string OrderBy = nameof(DocumentInfo.Name), [FromQuery] int skip = 0, [FromQuery] int take = 10, CancellationToken cancellationToken = default) =>
+documentApis.MapGet("/containers/{id}", async ([FromServices] IDocumentService documentService, Guid subscriptionId, Guid id, HttpRequest request, [FromQuery] bool descending = false, [FromQuery] string? search = null, [FromQuery] string OrderBy = nameof(DocumentInfo.Name), [FromQuery] int skip = 0, [FromQuery] int take = 10, CancellationToken cancellationToken = default) =>
 {
     try
     {
@@ -120,57 +87,32 @@ apis.MapGet("/containers/{id}", async ([FromServices] ApplicationDbContext dbCon
         if (skip < 0) skip = 0;
         if (take <= 0) take = 10;
 
-        var userName = request.HttpContext?.User.Identity?.Name;
-        var Containers = dbContext.Containers
-            .Where(f => f.SubscriptionId == subscriptionId && f.ParentId == id)
-            .Select(f => new { f.Id, f.Name, IsContainer = true, f.ModifiedOn, Type = "" });
+        var results = await documentService.QueryContentAsync(subscriptionId, id, skip, take, search, OrderBy, descending, cancellationToken);
 
-        var documents = dbContext.Documents.Where(d => d.SubscriptionId == subscriptionId && d.ContainerId == id)
-            .Select(d => new { d.Id, d.Name, IsContainer = false, d.ModifiedOn, d.Type });
-
-        var query = Containers.Union(documents);
-
-        if (!string.IsNullOrEmpty(search))
-        {
-            query = query.Where(f => f.Name.Contains(search));
-        }
-
-        query = OrderBy.ToLower() switch
-        {
-            "name" => !descending ? query.OrderByDescending(x => x.IsContainer).ThenBy(f => f.Name) : query.OrderByDescending(x => x.IsContainer).ThenByDescending(f => f.Name),
-            "modifiedon" => !descending ? query.OrderByDescending(x => x.IsContainer).ThenBy(f => f.ModifiedOn) : query.OrderByDescending(x => x.IsContainer).ThenByDescending(f => f.ModifiedOn),
-            _ => query.OrderByDescending(f => f.IsContainer)
-        };
-
-        var count = await query.CountAsync(cancellationToken: cancellationToken);
-
-        query = query.Skip(skip).Take(take);
-
-        var Container = await dbContext.Containers.Include(x => x.Parent).Where(x => x.Id == id && x.SubscriptionId == subscriptionId).FirstOrDefaultAsync(cancellationToken: cancellationToken);
-
-        return Results.Ok(new QuerySet<DocumentInfo>
-        {
-            Name = Container?.Name,
-            Parent = Container?.Parent != null ? new DocumentInfo { Id = Container.Parent.Id, Name = Container.Parent.Name } : null,
-            Items = await query.Select(x => new DocumentInfo
-            {
-                Id = x.Id,
-                Name = x.Name,
-                IsContainer = x.IsContainer,
-                ModifiedOn = x.ModifiedOn,
-                Type = x.Type
-            }).ToListAsync(cancellationToken: cancellationToken),
-            TotalCount = count
-        });
+        return Results.Ok(results);
     }
     catch (Exception)
     {
-        return Results.Problem("An error occurred while creating the Container.");
+        return Results.Problem("Error occurred while retrieving container contents.");
     }
 }).Produces<QuerySet<DocumentInfo>>();
 
+/// Get Container details
+documentApis.MapGet("/containers/{id}/details", async ([FromServices] IDocumentService documentService, Guid subscriptionId, Guid id) =>
+{
+    var container = await documentService.GetDocumentDetailsAsync(subscriptionId, id);
+
+    if (container == null)
+    {
+        return Results.NotFound();
+    }
+
+    return Results.Ok(container);
+
+}).Produces<DocumentInfo>();
+
 /// Get recycle bin contents
-apis.MapGet("/recyclebin", async ([FromServices] ApplicationDbContext dbContext, Guid subscriptionId, HttpRequest request, [FromQuery] bool descending = false, [FromQuery] string? search = null, [FromQuery] string OrderBy = nameof(DocumentInfo.Name), [FromQuery] int skip = 0, [FromQuery] int take = 25, CancellationToken cancellationToken = default) =>
+documentApis.MapGet("/recyclebin", async ([FromServices] IDocumentService documentService, Guid subscriptionId, HttpRequest request, [FromQuery] bool descending = false, [FromQuery] string? search = null, [FromQuery] string OrderBy = nameof(DocumentInfo.Name), [FromQuery] int skip = 0, [FromQuery] int take = 25, CancellationToken cancellationToken = default) =>
 {
     try
     {
@@ -180,48 +122,10 @@ apis.MapGet("/recyclebin", async ([FromServices] ApplicationDbContext dbContext,
         if (take > 100) take = 100;
 
         var userName = request.HttpContext?.User.Identity?.Name;
-        var readyForPurge = dbContext.PendingPurge.IgnoreQueryFilters()
-            .Where(f => f.SubscriptionId == subscriptionId)
-            .Select(f => new { f.ReferenceId });
-        var Containers = dbContext.Containers.IgnoreQueryFilters()
-            .Where(f => f.SubscriptionId == subscriptionId && f.ParentId == null && f.IsDeleted && !readyForPurge.Select(r => r.ReferenceId).Contains(f.Id))
-            .Select(f => new { f.Id, f.Name, IsContainer = true, f.DeletedOn, f.ModifiedOn });
 
-        var documents = dbContext.Documents
-        .IgnoreQueryFilters()
-        .Where(d => d.SubscriptionId == subscriptionId && d.IsDeleted && !readyForPurge.Select(r => r.ReferenceId).Contains(d.Id))
-            .Select(d => new { d.Id, d.Name, IsContainer = false, d.DeletedOn, d.ModifiedOn });
+        var results = await documentService.QueryDeletedAsync(subscriptionId, skip, take, search ?? string.Empty, OrderBy, descending, cancellationToken);
 
-        var query = Containers.Union(documents);
-
-        if (!string.IsNullOrEmpty(search))
-        {
-            query = query.Where(f => f.Name.Contains(search));
-        }
-
-        query = OrderBy.ToLower() switch
-        {
-            "name" => !descending ? query.OrderByDescending(x => x.IsContainer).ThenBy(f => f.Name) : query.OrderByDescending(x => x.IsContainer).ThenByDescending(f => f.Name),
-            "modifiedon" => !descending ? query.OrderByDescending(x => x.IsContainer).ThenBy(f => f.DeletedOn) : query.OrderByDescending(x => x.IsContainer).ThenByDescending(f => f.DeletedOn),
-            _ => query.OrderBy(f => f.Name)
-        };
-
-        var count = await query.CountAsync();
-        query = query.Skip(skip).Take(take);
-
-
-        return Results.Ok(new QuerySet<DocumentInfo>
-        {
-            Items = await query.Select(x => new DocumentInfo()
-            {
-                Id = x.Id,
-                Name = x.Name,
-                IsContainer = x.IsContainer,
-                DeletedOn = x.DeletedOn,
-                ModifiedOn = x.ModifiedOn
-            }).ToListAsync(),
-            TotalCount = count
-        });
+        return Results.Ok(results);
     }
     catch (Exception)
     {
@@ -229,7 +133,59 @@ apis.MapGet("/recyclebin", async ([FromServices] ApplicationDbContext dbContext,
     }
 }).Produces<QuerySet<Shared.Models.DocumentInfo>>();
 
-apis.MapPost("/recyclebin/empty", async ([FromServices] ApplicationDbContext dbContext, Guid subscriptionId, ILogger<Program> logger) =>
+
+//Soft delete item
+documentApis.MapDelete("/{id}", async ([FromServices] IDocumentService documentService, Guid subscriptionId, Guid id, CancellationToken cancellationToken = default) =>
+{
+    if (id == Guid.Empty)
+    {
+        return Results.ValidationProblem(new Dictionary<string, string[]> { { "id", new[] { "Container id is required." } } });
+    }
+
+
+
+    if (subscriptionId == Guid.Empty)
+    {
+        return Results.ValidationProblem(new Dictionary<string, string[]> { { "subscriptionId", new[] { "Subscription id is required." } } });
+    }
+
+    await documentService.DeleteAsync(subscriptionId, id, cancellationToken);
+
+    return Results.Ok();
+});
+
+/// Create a new Container
+documentApis.MapPost("/containers", async ([FromServices] ApplicationDbContext dbContext, [FromServices] IDocumentService documentService, Guid subscriptionId, CreateContainer request, CancellationToken cancellationToken, ILogger<Program> logger) =>
+{
+    if (string.IsNullOrWhiteSpace(request.Name))
+    {
+        return Results.BadRequest("Container name is required.");
+    }
+
+    try
+    {
+        var found = await dbContext.Containers.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.Name == request.Name.Trim() && x.SubscriptionId == subscriptionId && (request.ParentId.HasValue && x.ParentId == request.ParentId.Value));
+
+        if (found != null)
+        {
+            if (found.IsDeleted)
+            {
+                return Results.Problem("Cannot create a new {{Container}}+ with the same name as a deleted one.", statusCode: StatusCodes.Status410Gone);
+            }
+            return Results.Problem("A Container with the same name already exists.", statusCode: StatusCodes.Status409Conflict);
+        }
+
+        return Results.Ok(await documentService.CreateContainerAsync(subscriptionId, request, cancellationToken));
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Error creating container for subscription {SubscriptionId}", subscriptionId);
+        return Results.Problem("An error occurred while creating the Container.");
+    }
+}).Produces<DocumentInfo>()
+    .ProducesProblem(StatusCodes.Status500InternalServerError);
+
+documentApis.MapPost("/recyclebin/empty", async ([FromServices] IDocumentService documentService, Guid subscriptionId, ILogger<Program> logger) =>
 {
     if (subscriptionId == Guid.Empty)
     {
@@ -238,35 +194,7 @@ apis.MapPost("/recyclebin/empty", async ([FromServices] ApplicationDbContext dbC
 
     try
     {
-        var pendingPurge = dbContext.PendingPurge.IgnoreQueryFilters()
-            .Where(x => x.SubscriptionId == subscriptionId)
-            .Select(x => x.ReferenceId);
-
-        var containers = dbContext.Containers.IgnoreQueryFilters().Where(x => x.SubscriptionId == subscriptionId && x.IsDeleted && !pendingPurge.Contains(x.Id));
-
-        if (await containers.AnyAsync())
-        {
-            await dbContext.PendingPurge.AddRangeAsync(containers.Select(c => new PendingPurge
-            {
-                ReferenceId = c.Id,
-                SubscriptionId = subscriptionId,
-                EntityType = PendingPurgeEntityType.Container
-            }));
-            await dbContext.SaveChangesAsync();
-        }
-
-        var documents = dbContext.Documents.IgnoreQueryFilters().Where(x => x.SubscriptionId == subscriptionId && x.IsDeleted && !pendingPurge.Contains(x.Id));
-
-        if (await documents.AnyAsync())
-        {
-            await dbContext.PendingPurge.AddRangeAsync(documents.Select(d => new PendingPurge
-            {
-                ReferenceId = d.Id,
-                SubscriptionId = subscriptionId,
-                EntityType = PendingPurgeEntityType.Document
-            }));
-            await dbContext.SaveChangesAsync();
-        }
+        await documentService.EmptyRecycleBinAsync(subscriptionId);
         return Results.Ok();
     }
     catch (Exception ex)
@@ -277,7 +205,7 @@ apis.MapPost("/recyclebin/empty", async ([FromServices] ApplicationDbContext dbC
 
 });
 
-apis.MapPost("/recyclebin/restore", async ([FromServices] ApplicationDbContext dbContext, [FromRoute] Guid subscriptionId, [FromBody] RecycleBinItem model, HttpRequest request) =>
+documentApis.MapPost("/recyclebin/restore", async ([FromServices] ApplicationDbContext dbContext, [FromRoute] Guid subscriptionId, [FromBody] RecycleBinItem model, HttpRequest request) =>
 {
     if (model.Items == null || !model.Items.Any())
     {
@@ -303,7 +231,7 @@ apis.MapPost("/recyclebin/restore", async ([FromServices] ApplicationDbContext d
     return Results.Ok();
 });
 
-apis.MapPost("/recyclebin/purge", async([FromServices] ApplicationDbContext dbContext, Guid subscriptionId, [FromBody] RecycleBinItem model, ILogger<Program> logger) =>
+documentApis.MapPost("/recyclebin/purge", async ([FromServices] ApplicationDbContext dbContext, Guid subscriptionId, [FromBody] RecycleBinItem model, ILogger<Program> logger) =>
 {
     if (model.Items == null || !model.Items.Any())
     {
@@ -324,7 +252,7 @@ apis.MapPost("/recyclebin/purge", async([FromServices] ApplicationDbContext dbCo
             {
                 ReferenceId = c.Id,
                 SubscriptionId = subscriptionId,
-                EntityType = PendingPurgeEntityType.Container
+                EntityType = EntityType.Container
             }));
             await dbContext.SaveChangesAsync();
         }
@@ -337,7 +265,7 @@ apis.MapPost("/recyclebin/purge", async([FromServices] ApplicationDbContext dbCo
             {
                 ReferenceId = d.Id,
                 SubscriptionId = subscriptionId,
-                EntityType = PendingPurgeEntityType.Document
+                EntityType = EntityType.Document
             }));
             await dbContext.SaveChangesAsync();
         }
@@ -350,120 +278,7 @@ apis.MapPost("/recyclebin/purge", async([FromServices] ApplicationDbContext dbCo
     }
 });
 
-/// Get Container details
-apis.MapGet("/containers/{id}/details", async ([FromServices] ApplicationDbContext dbContext, Guid subscriptionId, Guid id) =>
-{
-    var Container = await dbContext.Containers.Include(x => x.Parent)
-                .Where(x => x.Id == id && x.SubscriptionId == subscriptionId)
-                .FirstOrDefaultAsync();
-
-    if (Container == null)
-    {
-        return Results.NotFound();
-    }
-
-    return Results.Ok(new DocumentInfo
-    {
-        Id = Container.Id,
-        Name = Container.Name,
-        Parent = Container.Parent != null ? new DocumentInfo { Id = Container.Parent.Id, Name = Container.Parent.Name } : null
-    });
-
-}).Produces<DocumentInfo>();
-
-apis.MapDelete("/{id}", async ([FromServices] ApplicationDbContext dbContext, Guid subscriptionId, Guid id, bool isPermanent = false, CancellationToken cancellationToken = default) =>
-{
-    if (id == Guid.Empty)
-    {
-        return Results.ValidationProblem(new Dictionary<string, string[]> { { "id", new[] { "Container id is required." } } });
-    }
-
-    if (subscriptionId == Guid.Empty)
-    {
-        return Results.ValidationProblem(new Dictionary<string, string[]> { { "subscriptionId", new[] { "Subscription id is required." } } });
-    }
-
-    var Container = await dbContext.Containers.Include(x => x.Documents).FirstOrDefaultAsync(x => x.Id == id && x.SubscriptionId == subscriptionId, cancellationToken);
-    if (Container != null)
-    {
-        if (isPermanent)
-        {
-            dbContext.Containers.Remove(Container);
-        }
-        else
-        {
-            Container.IsDeleted = true;
-            Container.DeletedOn = DateTime.UtcNow;
-        }
-    }
-    else
-    {
-        var document = await dbContext.Documents.FirstOrDefaultAsync(x => x.Id == id && x.SubscriptionId == subscriptionId, cancellationToken);
-        if (document != null)
-        {
-            if (isPermanent)
-            {
-                dbContext.Documents.Remove(document);
-            }
-            else
-            {
-                document.IsDeleted = true;
-                document.DeletedOn = DateTime.UtcNow;
-            }
-        }
-    }
-    await dbContext.SaveChangesAsync(cancellationToken);
-    return Results.Ok();
-});
-
-/// Create a new Container
-apis.MapPost("/containers", async ([FromServices] ApplicationDbContext dbContext, Guid subscriptionId, CreateContainer request, CancellationToken cancellationToken, ILogger<Program> logger) =>
-{
-    if (string.IsNullOrWhiteSpace(request.Name))
-    {
-        return Results.BadRequest("Container name is required.");
-    }
-
-    try
-    {
-        var found = await dbContext.Containers.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.Name == request.Name.Trim() && x.SubscriptionId == subscriptionId && (request.ParentId.HasValue && x.ParentId == request.ParentId.Value));
-
-        if (found != null)
-        {
-            if (found.IsDeleted)
-            {
-                return Results.Problem("Cannot create a new {{Container}}+ with the same name as a deleted one.", statusCode: StatusCodes.Status410Gone);
-            }
-            return Results.Problem("A Container with the same name already exists.", statusCode: StatusCodes.Status409Conflict);
-        }
-
-        var Container = new LynkContainer
-        {
-            Id = Guid.NewGuid(),
-            Name = request.Name.Trim(),
-            ParentId = request.ParentId,
-            SubscriptionId = subscriptionId,
-            ModifiedOn = DateTime.UtcNow
-        };
-
-        dbContext.Containers.Add(Container);
-        await dbContext.SaveChangesAsync();
-
-        return Results.Ok(new DocumentInfo
-        {
-            Id = Container.Id,
-            Name = Container.Name,
-            Parent = request.ParentId.HasValue ? new DocumentInfo { Id = request.ParentId.Value } : null
-        });
-    }
-    catch (Exception)
-    {
-        return Results.Problem("An error occurred while creating the Container.");
-    }
-}).Produces<DocumentInfo>()
-    .ProducesProblem(StatusCodes.Status500InternalServerError);
-
-apis.MapPost("/upload/stream", async ([FromServices] ApplicationDbContext dbContext, HttpRequest request, Guid subscriptionId, [FromHeader(Name = "X-ContainerId")] string? containerId) =>
+documentApis.MapPost("/upload/stream", async ([FromServices] ApplicationDbContext dbContext, HttpRequest request, Guid subscriptionId, [FromHeader(Name = "X-ContainerId")] string? containerId) =>
 {
     try
     {
@@ -521,5 +336,74 @@ apis.MapPost("/upload/stream", async ([FromServices] ApplicationDbContext dbCont
 
     }
 });
+
+#endregion
+
+#region Shares logic APIs
+var shareAPIs = app.MapGroup("/api/shares");
+
+shareAPIs.MapPost("/", async ([FromServices] ApplicationDbContext dbContext, [FromBody] ShareRequest model, HttpRequest request) =>
+{
+
+    if (model.ReferenceId == null || model.ReferenceId == Guid.Empty)
+    {
+        return Results.ValidationProblem(new Dictionary<string, string[]>
+        {
+            { nameof(model.ReferenceId), new[] { "ReferenceId is required." } }
+        });
+    }
+
+    dbContext.Shares.Add(new LynkShare
+    {
+        Id = Guid.NewGuid(),
+        ReferenceId = model.ReferenceId.Value
+    });
+
+    await dbContext.SaveChangesAsync();
+
+    return Results.Ok();
+});
+
+shareAPIs.MapDelete("/{id}", async ([FromServices] ApplicationDbContext dbContext, Guid id, HttpRequest request) =>
+{
+    var share = await dbContext.Shares.FirstOrDefaultAsync(s => s.Id == id);
+    if (share == null)
+    {
+        return Results.NotFound();
+    }
+    dbContext.Shares.Remove(share);
+    await dbContext.SaveChangesAsync();
+    return Results.Ok();
+});
+
+shareAPIs.MapPut("/{id}", async ([FromServices] ApplicationDbContext dbContext, Guid id, [FromBody] ShareRequest model, HttpRequest request) =>
+{
+    if (model.ReferenceId == null || model.ReferenceId == Guid.Empty)
+    {
+        return Results.ValidationProblem(new Dictionary<string, string[]>
+        {
+            { nameof(model.ReferenceId), new[] { "ReferenceId is required." } }
+        });
+    }
+
+    var share = await dbContext.Shares.FirstOrDefaultAsync(s => s.Id == id);
+
+    if (share == null)
+    {
+        return Results.NotFound();
+    }
+
+    share.ReferenceId = model.ReferenceId.Value;
+    await dbContext.SaveChangesAsync();
+    return Results.Ok();
+});
+
+shareAPIs.MapGet("/", async ([FromServices] ISharingService sharingService, [FromQuery] bool descending = false, [FromQuery] string? search = null, [FromQuery] string OrderBy = nameof(ShareRequest.Name), [FromQuery] int skip = 0, [FromQuery] int take = 25, CancellationToken cancellationToken = default) =>
+{
+    var result = await sharingService.QueryAsync(skip, take, OrderBy, descending, cancellationToken);
+    return Results.Ok(result);
+});
+
+#endregion
 
 app.Run();

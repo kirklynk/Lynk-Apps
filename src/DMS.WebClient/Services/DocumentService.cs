@@ -7,18 +7,18 @@ namespace DMS.WebClient.Services
 {
     public class DocumentService(IHttpClientFactory factory, ILogger<DocumentService> logger) : IDocumentService
     {
-        readonly HttpClient _httpClient = factory.CreateClient("backend");
+        readonly HttpClient _httpClient = factory.CreateClient(Constants.DEFAULT_URL_KEY);
 
-        public async Task<DocumentInfo?> CreateContainerAsync(Guid subscriptionId, CreateContainer Container)
+        public async Task<DocumentInfo?> CreateContainerAsync(Guid subscriptionId, CreateContainer Container, CancellationToken token = default)
         {
             logger.LogDebug("Creating container {ContainerName}", Container.Name);
 
-            using var response = await _httpClient.PostAsJsonAsync($"/dms/api/{subscriptionId}/documents/containers", Container);
+            using var response = await _httpClient.PostAsJsonAsync($"/dms/api/{subscriptionId}/documents/containers", Container, token);
             try
             {
                 response.EnsureSuccessStatusCode();
                 logger.LogDebug("Container {ContainerName} created successfully", Container.Name);
-                return await response.Content.ReadFromJsonAsync<DocumentInfo>();
+                return await response.Content.ReadFromJsonAsync<DocumentInfo>(token);
             }
             catch (HttpRequestException hre)
             {
@@ -33,33 +33,33 @@ namespace DMS.WebClient.Services
             }
         }
 
-        public async Task DeleteAsync(Guid subscriptionId, Guid id)
+        public async Task DeleteAsync(Guid subscriptionId, Guid id, CancellationToken token = default)
         {
-            using var response = await _httpClient.DeleteAsync($"/dms/api/{subscriptionId}/documents/{id}");
+            using var response = await _httpClient.DeleteAsync($"/dms/api/{subscriptionId}/documents/{id}", token);
             response.EnsureSuccessStatusCode();
         }
 
-        public async Task EmptyRecycleBinAsync(Guid subscriptionId)
+        public async Task EmptyRecycleBinAsync(Guid subscriptionId, CancellationToken token = default)
         {
-            using var response = await _httpClient.PostAsync($"/dms/api/{subscriptionId}/documents/recyclebin/empty", null);
+            using var response = await _httpClient.PostAsync($"/dms/api/{subscriptionId}/documents/recyclebin/empty", null, token);
             response.EnsureSuccessStatusCode();
         }
 
-        public async Task<DocumentInfo?> GetDetailsAsync(Guid subscriptionId, Guid ContainerId)
+        public async Task<DocumentInfo?> GetDocumentDetailsAsync(Guid subscriptionId, Guid ContainerId, CancellationToken token = default)
         {
-            using var response = await _httpClient.GetAsync($"/dms/api/{subscriptionId}/documents/containers/{ContainerId}/details");
+            using var response = await _httpClient.GetAsync($"/dms/api/{subscriptionId}/documents/containers/{ContainerId}/details", token);
             response.EnsureSuccessStatusCode();
-            return await response.Content.ReadFromJsonAsync<DocumentInfo>();
+            return await response.Content.ReadFromJsonAsync<DocumentInfo>(token);
         }
 
-        public async Task PurgeRecycleBinItemsAsync(Guid subscriptionId, RecycleBinItem model)
+        public async Task PurgeRecycleBinItemsAsync(Guid subscriptionId, RecycleBinItem model, CancellationToken token = default)
         {
             string url = $"/dms/api/{subscriptionId}/documents/recyclebin/purge";
-            var response = await _httpClient.PostAsJsonAsync(url, model);
+            var response = await _httpClient.PostAsJsonAsync(url, model, token);
             response.EnsureSuccessStatusCode();
         }
 
-        public async Task<QuerySet<DocumentInfo>> QueryAsync(Guid subscriptionId, Guid? ContainerId = null, int skip = 0, int take = 10, string search = "", string? orderBy = null, bool descending = false, CancellationToken cancellationToken = default)
+        public async Task<QuerySet<DocumentInfo>> QueryContentAsync(Guid subscriptionId, Guid? ContainerId = null, int skip = 0, int take = 10, string search = "", string? orderBy = null, bool descending = false, CancellationToken cancellationToken = default)
         {
             logger.LogDebug("Querying documents in subscription {SubscriptionId} ContainerId: {ContainerId} Skip: {Skip} Take: {Take} Search: {Search} OrderBy: {OrderBy} Descending: {Descending}",
                 subscriptionId, ContainerId, skip, take, search, orderBy, descending);
@@ -104,9 +104,9 @@ namespace DMS.WebClient.Services
             return response;
         }
 
-        public async Task RestoreAsync(Guid subscriptionId, RecycleBinItem model)
+        public async Task RestoreAsync(Guid subscriptionId, RecycleBinItem model, CancellationToken token = default)
         {
-            var response = await _httpClient.PostAsJsonAsync($"/dms/api/{subscriptionId}/documents/recyclebin/restore", model);
+            var response = await _httpClient.PostAsJsonAsync($"/dms/api/{subscriptionId}/documents/recyclebin/restore", model, token);
             response.EnsureSuccessStatusCode();
         }
 

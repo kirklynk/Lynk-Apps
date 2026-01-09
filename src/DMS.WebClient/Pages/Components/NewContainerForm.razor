@@ -6,7 +6,7 @@
         <MudText Typo="Typo.h6" GutterBottom="true">New Container</MudText>
         <MudGrid>
             <MudItem xs="12">
-                <MudTextField @bind-Value="Container.Name" Label="Container Name" Variant="Variant.Outlined" FullWidth="true" />
+                <MudTextField @bind-Value="Container.Name" Label="Container Name" Variant="Variant.Filled" FullWidth="true" />
                 <ValidationMessage For="@(() => Container.Name)" />
             </MudItem>
             <MudItem xs="12">

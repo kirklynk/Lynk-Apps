@@ -2,5 +2,5 @@
 
 namespace DocumentManagementService.Domain
 {
-    internal record Tag(Guid Id, [Required] string Name);
+    internal record LynkTag(Guid Id, [Required] string Name);
 }

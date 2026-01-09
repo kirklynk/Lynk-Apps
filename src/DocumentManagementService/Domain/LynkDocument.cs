@@ -2,12 +2,13 @@
 
 namespace DocumentManagementService.Domain
 {
-    internal record LynkDocument([Required] string Name)
+    internal record LynkDocument([Required] string? Name)
     {
         public Guid Id { get; set; }
 
         public Guid? ContainerId { get; set; }
-        public ICollection<Tag> Tags { get; set; } = [];
+
+        public ICollection<LynkTag> Tags { get; set; } = [];
 
         public virtual LynkContainer? Container { get; set; }
 
@@ -27,5 +28,6 @@ namespace DocumentManagementService.Domain
 
         [Required]
         public string? Extension { get;  set; }
+
     }
 }

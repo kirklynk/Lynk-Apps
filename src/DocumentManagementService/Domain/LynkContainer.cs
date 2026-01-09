@@ -25,5 +25,7 @@ namespace DocumentManagementService.Domain
 
         public DateTime? DeletedOn { get;  set; }
 
+        public virtual ICollection<LynkShare> Shares { get; set; } = new HashSet<LynkShare>();
+
     }
 }

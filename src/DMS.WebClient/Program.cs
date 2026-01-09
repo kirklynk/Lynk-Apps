@@ -4,7 +4,6 @@ using DMS.WebClient.Services;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
-using Microsoft.Extensions.DependencyInjection;
 using MudBlazor;
 using MudBlazor.Services;
 using Shared.Common.Interfaces;
@@ -26,6 +25,8 @@ builder.Services.AddScoped<AuthenticationStateProvider, CookieAuthenticationStat
 builder.Services.AddScoped<IAccountManagement, CookieAuthenticationStateProvider>();
 
 builder.Services.AddScoped<IDocumentService, DocumentService>();
+builder.Services.AddScoped<ISharingService, SharingServices>();
+builder.Services.AddSingleton<SettingsService>();
 
 builder.Services.AddMudServices(config =>
 {
@@ -34,7 +35,7 @@ builder.Services.AddMudServices(config =>
     config.SnackbarConfiguration.PreventDuplicates = false;
     config.SnackbarConfiguration.NewestOnTop = false;
     config.SnackbarConfiguration.ShowCloseIcon = true;
-    config.SnackbarConfiguration.VisibleStateDuration = 10000;
+    config.SnackbarConfiguration.VisibleStateDuration = 1000;
     config.SnackbarConfiguration.HideTransitionDuration = 500;
     config.SnackbarConfiguration.ShowTransitionDuration = 500;
     config.SnackbarConfiguration.SnackbarVariant = Variant.Filled;
@@ -42,9 +43,10 @@ builder.Services.AddMudServices(config =>
 
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
 
-builder.Services.AddHttpClient("backend", client =>
+builder.Services.AddHttpClient(Constants.DEFAULT_URL_KEY, client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["backend"] ?? throw new NotSupportedException());
 }).AddHttpMessageHandler<CookieMessageHandler>();
+
 
 await builder.Build().RunAsync();

@@ -1,7 +1,56 @@
 ﻿@page "/shared"
+@inject ISharingService _sharingService
 
-<h3>Shares</h3>
+<MudPaper Elevation="0" Style="margin-bottom: 5px;">
+    <MudBreadcrumbs Items="@([new BreadcrumbItem("", href: "/", icon: Icons.Material.Filled.Home), new BreadcrumbItem("Shared", href: "/shared", disabled: true)])"></MudBreadcrumbs>
 
+    <MudText Style="font-size: 2rem; padding-left: 10px;">Shared</MudText>
+</MudPaper>
+<div class="mt-4">
+    <MudStack>
+        <MudToggleGroup T="ShareViewMode" Color="Color.Primary" Style="max-width: 600px;" Outlined="false" Vertical="false" Delimiters="true">
+            <MudToggleItem Value="ShareViewMode.All" Text="All" />
+            <MudToggleItem Value="ShareViewMode.SharedByMe" Text="By me" />
+            <MudToggleItem Value="ShareViewMode.SharedWithMe" Text="With me" />
+        </MudToggleGroup>
+    </MudStack>
+</div>
+<div style="margin-top: 20px;">
+    <MudDataGrid T="ShareRequest" Virtualize="true" FixedHeader="true" Outlined="false" ItemSize="20.0f" Height="400px" VirtualizeServerData="GetDataAsync">
+        <Columns>
+            <PropertyColumn Property="x => x.ReferenceId" Title="Name" />
+            <PropertyColumn Property="x => x.Owner" Title="Owner" />
+            <PropertyColumn Property="x => x.Recipients" Title="Shared With" />
+
+        </Columns>
+        <NoRecordsContent>
+            <EmptyContent />
+        </NoRecordsContent>
+    </MudDataGrid>
+</div>
 @code {
+    private ShareViewMode _currentViewMode = ShareViewMode.All;
 
+    async Task<GridData<ShareRequest>> GetDataAsync(GridStateVirtualize<ShareRequest> state, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var sort = state.SortDefinitions.FirstOrDefault();
+            QuerySet<ShareRequest> querySet = await _sharingService.QueryAsync(skip: state.StartIndex, take: state.Count, orderBy: sort?.SortBy, descending: sort != null ? !sort.Descending : false, cancellationToken: cancellationToken);
+
+            return new GridData<ShareRequest>
+            {
+                Items = querySet.Items ?? [],
+                TotalItems = querySet.TotalCount
+            };
+        }
+        catch (OperationCanceledException ocex)
+        {
+            return new GridData<ShareRequest>
+            {
+                Items = [],
+                TotalItems = 0
+            };
+        }        
+    }
 }

@@ -1,0 +1,71 @@
+﻿@using System.ComponentModel.DataAnnotations
+
+<MudPaper Style="padding: 1.5rem; width: 500px;">
+    <h2>Sharing "@(Info.Name)"</h2>
+    <div>
+        <MudText Typo="Typo.body1">
+            Sharing functionality is coming soon!
+        </MudText>
+    </div>
+    <MudChipSet T="string" AllClosable OnClose="RemoveRecipient">
+        @foreach (var value in _values)
+        {
+            <MudChip Text="@value"></MudChip>
+        }
+    </MudChipSet>
+    <div>
+        <EditForm Model="_newRecipient" OnValidSubmit="AddRecipient" AdditionalAttributes="@(new Dictionary<string, object> { { "autocomplete", "off" } })">
+            <DataAnnotationsValidator />
+            <MudStack Row="true">
+                <MudTextField T="string" Placeholder="Enter recipient's email"
+                              class="form-control" UserAttributes="@(new Dictionary<string, object> { { "list", "suggestions" },{ "autocomplete", "off" } })" @bind-Value="_newRecipient.Email" AdornmentIcon="@Icons.Material.Filled.Email" />
+                <MudIconButton Icon="@Icons.Material.Filled.Add" Variant="Variant.Text" ButtonType="ButtonType.Submit" Color="Color.Primary" Size="Size.Small" Style="width: 2.4rem; height: 2.4rem" />
+                <datalist id="suggestions">
+                    @foreach (var item in _suggestions)
+                    {
+                        <option value="@item"></option>
+                    }
+                </datalist>
+            </MudStack>
+            <div>
+                <ValidationMessage For="@(() => _newRecipient.Email)" />
+            </div>
+        </EditForm>
+    </div>
+    <MudStack Row="true" Justify="Justify.FlexEnd" Style="margin-top: 2rem;">
+        <MudButton Color="Color.Primary" Variant="Variant.Text" OnClick="() => MudDialog.Cancel()">Cancel</MudButton>
+        <MudButton StartIcon="@Icons.Material.Filled.Send" OnClick="AddRecipient" Color="Color.Primary"  Variant="Variant.Filled" Disabled="_values.Count == 0">Send</MudButton>
+
+    </MudStack>
+</MudPaper>
+
+@code
+{
+    [Parameter]
+    public DocumentInfo Info { get; set; }
+
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; }
+
+    NewRecipient _newRecipient = new NewRecipient();
+    List<string> _suggestions = new List<string> { "kirklynk@gmail.com", "tisa_bless@icloud.com" };
+
+    private int _i = 1;
+    private List<string> _values = new();
+    
+    public void AddRecipient()
+    {     
+        _values.Add(_newRecipient.Email);
+        _newRecipient.Email = string.Empty;
+    }
+
+    public void RemoveRecipient(MudChip<string> chip) => _values.Remove(chip.Text);
+
+    public class NewRecipient
+    {
+        [Required(ErrorMessage = "Please enter a valid email address.")]
+        [EmailAddress]
+        public string Email { get; set; } = string.Empty;
+    }
+}
+

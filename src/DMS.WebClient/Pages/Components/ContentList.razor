@@ -23,10 +23,10 @@
             <MudMenuItem Label="Upload files" Icon="@Icons.Material.Filled.UploadFile" OnClick="@(async args => await OpenUploadDialogAsync(ContainerId))" />
         </ChildContent>
     </MudMenu>
-    <input type="file" style="display:none" id="lynk-file-upload" multiple @ref="_fileInput" />
+    <input type="file" style="display:none" id="lynk-file-upload" @ref="_fileInput" />
 </div>
 <div>
-    <MudDataGrid T="DocumentInfo" Bordered="false" FixedHeader="true" Virtualize="true" Outlined="false" ItemSize="20.0f" Style="border: none !important;" SortMode="SortMode.Single" Loading="@_isLoading" Height="500px" Elevation="0" RowClass="row" VirtualizeServerData="GetDataAsync" RowClick="RowClicked" @ref="_dataGrid">
+    <MudDataGrid T="DocumentInfo" MultiSelection="true" Bordered="false" FixedHeader="true" Virtualize="true" Outlined="false" ItemSize="20.0f" Style="border: none !important;" SortMode="SortMode.Single" Loading="@_isLoading" Height="500px" Elevation="0" RowClass="row" VirtualizeServerData="GetDataAsync" RowClick="RowClicked" @ref="_dataGrid">
         <Columns>
             <TemplateColumn CellStyle="width: 24px;" Context="ctx">
                 <CellTemplate>
@@ -50,10 +50,14 @@
                         </ActivatorContent>
                         <ChildContent>
                             <MudMenuItem Label="Delete" Icon="@Icons.Material.Filled.Delete" OnClick="@(async () => await DeleteAsync(ctx.Item.Id))" />
+
                             <MudMenuItem Label="Rename" Icon="@Icons.Material.Filled.TextFields" />
+
+                            <MudMenuItem Label="Share" Icon="@Icons.Material.Filled.Share" OnClick="@(async () => await ShareAsync(ctx.Item))" />
+
                             @if (ctx.Item.IsContainer)
                             {
-                                <MudMenuItem Label="Upload" Icon="@Icons.Material.Filled.UploadFile" OnClick="@(async args => await OpenUploadDialogAsync(ctx.Item.Id))" />
+                                <MudMenuItem Label="Upload files" Icon="@Icons.Material.Filled.UploadFile" OnClick="@(async args => await OpenUploadDialogAsync(ctx.Item.Id))" />
                             }
 
                         </ChildContent>
@@ -62,10 +66,11 @@
             </TemplateColumn>
         </Columns>
         <NoRecordsContent>
-            <EmptyContent>This container is empty.</EmptyContent>
+            <EmptyContent />
         </NoRecordsContent>
     </MudDataGrid>
 </div>
+
 <MudMessageBox @ref="_mudMessageBox" Title="Warning" CancelText="Cancel">
     <MessageContent>
         Are you sure you want to move this item to the recycle bin, you will have 30 days to recover it?
@@ -101,7 +106,7 @@
         _breadcrumbs = new() { new("", $"/view/0", icon: Icons.Material.Filled.Home) };
         if (ContainerId.HasValue)
         {
-            _container = await _fileProvider.GetDetailsAsync(SubscriptionId, ContainerId.Value);
+            _container = await _fileProvider.GetDocumentDetailsAsync(SubscriptionId, ContainerId.Value);
             if (_container?.Parent != null)
             {
                 _breadcrumbs.Add(new(_container.Parent.Name, $"/view/1/{_container.Parent.Id}"));
@@ -127,6 +132,8 @@
             _logger.LogInformation("OnAfterRenderAsync firstRender: {FirstRender}", firstRender);
             _uploader ??= await _jsRuntime.InvokeAsync<IJSObjectReference>("import", "./upload.js");
             objRef ??= DotNetObjectReference.Create(this);
+
+            await _uploader.InvokeVoidAsync("initializeUploader", "lynk-file-upload", objRef);
         }
     }
 
@@ -152,10 +159,9 @@
 
         try
         {
-
             var sort = request.SortDefinitions.FirstOrDefault();
 
-            var query = await _fileProvider.QueryAsync(SubscriptionId, ContainerId, request.StartIndex, request.Count, search: null, orderBy: sort?.SortBy, descending: sort?.Descending ?? false, cancellationToken: token);
+            var query = await _fileProvider.QueryContentAsync(SubscriptionId, ContainerId, request.StartIndex, request.Count, search: null, orderBy: sort?.SortBy, descending: sort?.Descending ?? false, cancellationToken: token);
 
             return new GridData<DocumentInfo>
             {
@@ -190,7 +196,7 @@
                 NoHeader = true,
                 FullWidth = true,
                 MaxWidth = MaxWidth.Small,
-                Position = DialogPosition.Center 
+                Position = DialogPosition.Center
             });
 
         var fileDetails = await result.GetReturnValueAsync<DocumentInfo>();
@@ -213,11 +219,8 @@
             {
                 await _fileProvider.DeleteAsync(SubscriptionId, item);
                 _snackbar?.Clear();
-                _snackbar?.Configuration.PositionClass = Defaults.Classes.Position.BottomRight;
-                _snackbar?.Add("Item deleted successfully.", Severity.Success, configure: op=>
-                {
-                    op.VisibleStateDuration = 1500;
-                });
+
+                _snackbar?.Add("Item deleted successfully.", Severity.Success);
 
                 if (_dataGrid != null)
                 {
@@ -243,9 +246,8 @@
         var httpClient = _factory.CreateClient("backend");
         var uploadUrl = new Uri(httpClient.BaseAddress, $"/dms/api/{SubscriptionId}/documents/upload/stream");
 
-        await _uploader.InvokeVoidAsync("uploadFile", "lynk-file-upload", uploadUrl, containerId, objRef);
+        await _uploader.InvokeVoidAsync("uploadFile", uploadUrl, containerId);
     }
-
 
     [JSInvokable("onFileUploadCompleted")]
     public async Task OnUploadCompleteAsync(bool success)
@@ -255,15 +257,27 @@
             await _dataGrid.ReloadServerData();
             _snackbar?.Clear();
             _snackbar?.Configuration.PositionClass = Defaults.Classes.Position.BottomRight;
-            _snackbar?.Add("File uploaded successfully.", Severity.Success, configure: op =>
-                {
-                    op.VisibleStateDuration = 1500;
-                });
+            _snackbar?.Add("File uploaded successfully.", Severity.Success);
         }
         else
         {
             await _dialogService.ShowMessageBox("Upload Failed", "File upload failed.");
         }
+    }
+
+    private async Task ShareAsync(DocumentInfo documentInfo)
+    {
+        var dialog = await _dialogService.ShowAsync<ShareDialog>("Share Document",
+            new DialogParameters<ShareDialog>() { { x => x.Info, documentInfo } },
+            new DialogOptions
+            {
+                CloseOnEscapeKey = true,
+                NoHeader = true,
+                MaxWidth = MaxWidth.Medium,
+
+                Position = DialogPosition.Center,
+                CloseButton = true
+            });
     }
 }
 <style>
