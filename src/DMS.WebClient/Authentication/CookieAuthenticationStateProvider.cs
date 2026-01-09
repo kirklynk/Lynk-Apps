@@ -2,6 +2,7 @@
 using DMS.WebClient.Pages;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.Extensions.Logging;
+using Shared.Models;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
@@ -31,7 +32,7 @@ namespace DMS.WebClient.Authentication
                 // the user info endpoint is secured, so if the user isn't logged in this will fail
                 httpClient.DefaultRequestHeaders.TryAddWithoutValidation("x-application-id", $"{Guid.NewGuid()}");
 
-                var userInfo = await httpClient.GetFromJsonAsync<UserInfo>("/app/user/info");
+                var userInfo = await httpClient.GetFromJsonAsync<UserInfo>("/user/info");
 
                 if (userInfo != null)
                 {
@@ -68,7 +69,7 @@ namespace DMS.WebClient.Authentication
             return new AuthenticationState(user);
         }
 
-        public async Task<bool> LoginAsync(LoginRequest login)
+        public async Task<bool> LoginAsync(LoginModel login)
         {
             try
             {

@@ -1,6 +1,6 @@
 <Solution>
   <Project Path="DMS.WebClient/DMS.WebClient.csproj" Id="07e19e9c-ac47-4053-9964-00db34bc0cc9" />
   <Project Path="DocumentManagementService/DocumentManagementService.csproj" />
-  <Project Path="GatewayService/GatewayService.csproj" />
+  <Project Path="Proxy/Proxy.csproj" Id="62e8d3b4-9613-4954-8d74-d9709b768fd4" />
   <Project Path="Shared/Shared.csproj" Id="6f7bde5e-5bda-464b-a988-51c0b6a24555" />
 </Solution>
