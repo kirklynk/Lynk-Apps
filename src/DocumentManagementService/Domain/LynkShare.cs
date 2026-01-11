@@ -14,5 +14,8 @@ namespace DocumentManagementService.Domain
         public string? Owner { get; set; }
 
         public EntityType EntityType { get; set; }
+
+        public Guid SubscriptionId { get; set; }
+        public Guid UserId { get; set; }
     }
 }

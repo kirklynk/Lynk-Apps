@@ -29,5 +29,8 @@ namespace DocumentManagementService.Domain
         [Required]
         public string? Extension { get;  set; }
 
+        [Required]
+        public Guid UserId { get; set; }
+
     }
 }

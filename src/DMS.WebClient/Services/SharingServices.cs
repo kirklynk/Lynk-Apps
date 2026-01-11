@@ -8,14 +8,18 @@ namespace DMS.WebClient.Services
     {
         readonly HttpClient _httpClient = factory.CreateClient(Constants.DEFAULT_URL_KEY);
 
-        public async Task<QuerySet<ShareRequest>> QueryAsync(int skip, int take, string? orderBy, bool descending, CancellationToken cancellationToken)
+        public async Task<QuerySet<ShareRequest>> QueryAsync(Guid userId, Guid subscriptionId, int skip, int take, string? orderBy, bool descending, CancellationToken cancellationToken)
         {
-            var url = $"/dms/api/shares?skip={skip}&take={take}";
+            var url = $"/dms/api/users/{userId}/subscriptions/{subscriptionId}/documents/shares?skip={skip}&take={take}";
             if (!string.IsNullOrEmpty(orderBy))
             {
                 url += $"&orderBy={orderBy}&descending={descending}";
             }
-            return await _httpClient.GetFromJsonAsync<QuerySet<ShareRequest>>(url, cancellationToken) ?? new QuerySet<ShareRequest>();
+            var response = await _httpClient.GetAsync(url, cancellationToken);
+            response.EnsureSuccessStatusCode();
+
+            return await response.Content.ReadFromJsonAsync<QuerySet<ShareRequest>>(cancellationToken: cancellationToken) ?? new QuerySet<ShareRequest>();
+
         }
     }
 }

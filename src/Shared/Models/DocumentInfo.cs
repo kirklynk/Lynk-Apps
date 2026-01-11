@@ -11,5 +11,7 @@
 
         public virtual DocumentInfo? Parent { get; set; }
         public string? Type { get; set; }
+
+        public bool? IsPinned { get; set; }
     }
 }

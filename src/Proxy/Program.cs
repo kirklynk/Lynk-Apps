@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using Proxy.Data;
 using Shared.Models;
 using System.Security;
+using System.Security.Claims;
 using System.Threading.RateLimiting;
 using Yarp.ReverseProxy.Transforms;
 
@@ -16,13 +17,15 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(connectionString));
-builder.Services.AddDatabaseDeveloperPageExceptionFilter();
+{
+    options.UseSqlServer(connectionString);
+});
 
 builder.Services.AddDefaultIdentity<User>(options => options.SignIn.RequireConfirmedAccount = true)
     .AddEntityFrameworkStores<ApplicationDbContext>()
     .AddSignInManager<SignInManager<User>>()
     .AddUserManager<UserManager<User>>();
+
 
 // YARP: add the reverse proxy services
 builder.Services.AddReverseProxy()
@@ -33,20 +36,12 @@ builder.Services.AddReverseProxy()
         context.AddRequestTransform(ctx =>
         {
             ctx.ProxyRequest.Headers.Add("X-Gateway-Auth", "true");
-
-            var user = ctx.HttpContext.User;
-
-            if (user.Identity?.IsAuthenticated == true)
-            {
-                ctx.ProxyRequest.Headers.Add(
-                    "X-User-Name", user.Identity.Name);
-            }
-
             return ValueTask.CompletedTask;
         });
     });
 
-builder.Services.AddAuthorizationBuilder().AddPolicy("Dms", policy =>
+builder.Services.AddAuthorizationBuilder()
+    .AddPolicy("Dms", policy =>
 {
     //policy.RequireRole("Admin");
     policy.RequireAuthenticatedUser();
@@ -165,7 +160,7 @@ app.MapGet("/user/info", async (HttpRequest request, [FromServices] UserManager<
         .Select(s => new { s.Id, s.Name })
         .ToListAsync();
 
-    return Results.Ok(new { userEntity.Email, Subscriptions = subscriptions, userEntity.FullName });
+    return Results.Ok(new { userEntity.Email, Subscriptions = subscriptions, userEntity.FullName, userEntity.Id });
 
 }).RequireAuthorization();
 

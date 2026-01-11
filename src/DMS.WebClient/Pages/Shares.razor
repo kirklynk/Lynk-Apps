@@ -30,13 +30,21 @@
 </div>
 @code {
     private ShareViewMode _currentViewMode = ShareViewMode.All;
+    [CascadingParameter(Name = "SubscriptionId")]
+    public Guid SubscriptionId { get; set; }
+
+    [CascadingParameter(Name = "TimeOffset")]
+    public TimeSpan TimeOffset { get; set; }
+
+    [CascadingParameter(Name = "UserId")]
+    public Guid UserId { get; set; }
 
     async Task<GridData<ShareRequest>> GetDataAsync(GridStateVirtualize<ShareRequest> state, CancellationToken cancellationToken)
     {
         try
         {
             var sort = state.SortDefinitions.FirstOrDefault();
-            QuerySet<ShareRequest> querySet = await _sharingService.QueryAsync(skip: state.StartIndex, take: state.Count, orderBy: sort?.SortBy, descending: sort != null ? !sort.Descending : false, cancellationToken: cancellationToken);
+            QuerySet<ShareRequest> querySet = await _sharingService.QueryAsync(UserId, SubscriptionId, skip: state.StartIndex, take: state.Count, orderBy: sort?.SortBy, descending: sort != null ? !sort.Descending : false, cancellationToken: cancellationToken);
 
             return new GridData<ShareRequest>
             {

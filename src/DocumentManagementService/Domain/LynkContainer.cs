@@ -8,8 +8,7 @@ namespace DocumentManagementService.Domain
 
         [Required]
         public string? Name { get; set; }
-        public ICollection<LynkDocument> Documents { get; set; } = new HashSet<LynkDocument>();
-
+      
         [Required]
         public Guid SubscriptionId { get; set; }
 
@@ -17,15 +16,20 @@ namespace DocumentManagementService.Domain
 
         public virtual LynkContainer? Parent { get; set; }
 
-        public virtual ICollection<LynkContainer> Children { get; set; } = new HashSet<LynkContainer>();
-
+       
         public DateTime? ModifiedOn { get; set; }
 
         public bool IsDeleted { get; set; } = false;
 
         public DateTime? DeletedOn { get;  set; }
 
+        [Required]
+        public Guid UserId { get; set; }
+
         public virtual ICollection<LynkShare> Shares { get; set; } = new HashSet<LynkShare>();
 
+        public virtual ICollection<LynkContainer> Children { get; set; } = new HashSet<LynkContainer>();
+
+        public ICollection<LynkDocument> Documents { get; set; } = new HashSet<LynkDocument>();
     }
 }

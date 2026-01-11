@@ -15,6 +15,7 @@ namespace DocumentManagementService.Data
         public DbSet<LynkTag> Tags { get; set; }
         public DbSet<PendingPurge> PendingPurge { get; set; }
         public DbSet<LynkShare> Shares { get; set; }
+        public DbSet<LynkPin> PinnedObjects { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -57,6 +58,16 @@ namespace DocumentManagementService.Data
                 e.Property(s => s.EntityType)
                     .HasConversion<int>()
                     .HasColumnName("EntityTypeId");
+            });
+
+            modelBuilder.Entity<LynkPin>(e =>
+            {
+                e.HasKey(p => new { p.ReferenceId, p.UserId });
+                e.Property(p => p.UserId).IsRequired();
+                e.Property(p => p.Entity)
+                    .HasConversion<byte>()
+                    .HasColumnName("EntityTypeId");
+                e.ToTable("PinnedObjects");
             });
 
             base.OnModelCreating(modelBuilder);

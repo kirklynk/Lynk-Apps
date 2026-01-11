@@ -9,6 +9,6 @@ namespace Shared.Common.Interfaces
 {
     public interface ISharingService
     {
-        Task<QuerySet<ShareRequest>> QueryAsync(int skip, int take, string? orderBy, bool descending, CancellationToken cancellationToken);
+        Task<QuerySet<ShareRequest>> QueryAsync(Guid userId, Guid subscriptionId, int skip, int take, string? orderBy, bool descending, CancellationToken cancellationToken);
     }
 }

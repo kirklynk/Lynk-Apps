@@ -1,16 +1,18 @@
 ﻿
 <div style="margin: 1rem;">
-    <div>@ContainerId</div>
     <EditForm Model="Container" OnValidSubmit="OnValidSubmitAsync">
         <DataAnnotationsValidator />
         <MudText Typo="Typo.h6" GutterBottom="true">New Container</MudText>
         <MudGrid>
             <MudItem xs="12">
-                <MudTextField @bind-Value="Container.Name" Label="Container Name" Variant="Variant.Filled" FullWidth="true" />
+                <MudTextField @bind-Value="Container.Name" Label="Container Name" Variant="Variant.Outlined" FullWidth="true" />
                 <ValidationMessage For="@(() => Container.Name)" />
             </MudItem>
             <MudItem xs="12">
-                <MudButton ButtonType="ButtonType.Submit" Color="Color.Primary" Variant="Variant.Filled" Disabled="_submitting">Create</MudButton>
+                <MudStack Row="true" AlignItems="AlignItems.End" Justify="Justify.FlexEnd">
+                    <MudButton ButtonType="ButtonType.Button" Color="Color.Primary" Variant="Variant.Outlined" OnClick="@(() => MudDialog.Cancel())">Cancel</MudButton>
+                    <MudButton ButtonType="ButtonType.Submit" Color="Color.Primary" Variant="Variant.Filled" Disabled="_submitting">Create</MudButton>
+                </MudStack>
             </MudItem>
         </MudGrid>
     </EditForm>
@@ -28,6 +30,9 @@
     [Parameter]
     public Guid? ContainerId { get; set; }
 
+    [Parameter]
+    public Guid UserId { get; set; }
+
     [CascadingParameter]
     private IMudDialogInstance MudDialog { get; set; }
 
@@ -43,7 +48,8 @@
                 Container.ParentId = ContainerId.Value;
             }
 
-            var fileDetails = await _fileProvider.CreateContainerAsync(SubscriptionId, Container);
+            var fileDetails = await _fileProvider.CreateContainerAsync(UserId, SubscriptionId, Container);
+
             MudDialog.Close(fileDetails);
         }
         catch (Exception ex)

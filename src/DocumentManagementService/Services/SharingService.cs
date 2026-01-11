@@ -8,7 +8,7 @@ namespace DocumentManagementService.Services
 {
     internal class SharingService(ApplicationDbContext dbContext, ILogger<SharingService> logger, IHttpContextAccessor httpContextAccessor) : ISharingService
     {
-        public async Task<QuerySet<ShareRequest>> QueryAsync(int skip, int take, string? orderBy, bool descending, CancellationToken cancellationToken)
+        public async Task<QuerySet<ShareRequest>> QueryAsync(Guid userId, Guid subscriptionId, int skip, int take, string? orderBy, bool descending, CancellationToken cancellationToken)
         {
             var query = dbContext.Shares
                 .Where(s => s.EntityType == EntityType.Document)
@@ -24,8 +24,7 @@ namespace DocumentManagementService.Services
                         Owner = share.Owner,
                         EntityType = share.EntityType,
                         ReferenceId = share.ReferenceId
-                    }
-                    );
+                    });
 
             var sharedContainers = dbContext.Shares
                 .Where(s => s.EntityType == EntityType.Container)
@@ -45,7 +44,7 @@ namespace DocumentManagementService.Services
                     );
 
             var union = query.Union(sharedContainers);
-           
+
             var count = await union.CountAsync(cancellationToken);
             return new QuerySet<ShareRequest>
             {

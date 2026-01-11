@@ -41,7 +41,8 @@ namespace DMS.WebClient.Authentication
                     {
                         new(ClaimTypes.Name, userInfo.Email),
                         new(ClaimTypes.Email, userInfo.Email),
-                        new("FullName", userInfo.FullName)
+                        new("FullName", userInfo.FullName),
+                        new(ClaimTypes.NameIdentifier, $"{userInfo.Id}"),
                     };
 
                     claims.AddRange(userInfo.Subscriptions.Select(x => new Claim("SubscriptionId", $"{x.Id}")));

@@ -83,6 +83,9 @@
     [CascadingParameter(Name = "TimeOffset")]
     public TimeSpan TimeOffset { get; set; }
 
+    [CascadingParameter(Name = "UserId")]
+    public Guid UserId { get; set; }
+
     MudDataGrid<DocumentInfo>? _dataGrid;
     MudMessageBox? _mudMessageBox;
     bool _isLoading = true;
@@ -100,7 +103,7 @@
 
             var sort = request.SortDefinitions.FirstOrDefault();
 
-            var query = await _fileProvider.QueryDeletedAsync(SubscriptionId, skip: request.StartIndex, take: request.Count, orderBy: sort?.SortBy, descending: sort != null ? !sort.Descending : false, cancellationToken: token);
+            var query = await _fileProvider.QueryDeletedAsync(UserId, SubscriptionId, skip: request.StartIndex, take: request.Count, orderBy: sort?.SortBy, descending: sort != null ? !sort.Descending : false, cancellationToken: token);
             _isEmpty = query.TotalCount == 0;
             return new GridData<DocumentInfo>
             {
@@ -141,7 +144,7 @@
                 if (result != true)
                     return;
 
-                await _fileProvider.PurgeRecycleBinItemsAsync(SubscriptionId, restore, _cts.Token);
+                await _fileProvider.PurgeRecycleBinItemsAsync(UserId, SubscriptionId, restore, _cts.Token);
             }
             else
             {
@@ -154,7 +157,7 @@
                 if (result != true)
                     return;
 
-                await _fileProvider.RestoreAsync(SubscriptionId, restore, _cts.Token);
+                await _fileProvider.RestoreAsync(UserId, SubscriptionId, restore, _cts.Token);
             }
 
             _isLoading = true;
@@ -193,7 +196,7 @@
             if (result == true)
             {
                 _selected?.Clear();
-                await _fileProvider.EmptyRecycleBinAsync(SubscriptionId, _cts.Token);
+                await _fileProvider.EmptyRecycleBinAsync(UserId, SubscriptionId, _cts.Token);
                 await _dataGrid!.ReloadServerData();
             }
             StateHasChanged();

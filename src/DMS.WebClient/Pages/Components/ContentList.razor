@@ -40,7 +40,17 @@
                     }
                 </CellTemplate>
             </TemplateColumn>
-            <PropertyColumn Property="x => x.Name" SortBy="x => x.IsContainer" />
+            <TemplateColumn Property="x => x.Name" SortBy="x => x.IsContainer" Context="ctx">
+                <CellTemplate>
+                    <MudStack Row="true" Justify="Justify.SpaceBetween">
+                        @ctx.Item.Name
+                        @if (ctx.Item.IsPinned == true)
+                        {
+                            <img src="images/pinned.svg" alt="Pin" title="Pinned" style="width:16px;height:16px;" />
+                        }
+                    </MudStack>
+                </CellTemplate>
+            </TemplateColumn>
             <PropertyColumn Property="x => x.ModifiedOn" SortBy="x => x.IsContainer" />
             <TemplateColumn CellStyle="width: 24px;" Context="ctx">
                 <CellTemplate>
@@ -54,6 +64,8 @@
                             <MudMenuItem Label="Rename" Icon="@Icons.Material.Filled.TextFields" />
 
                             <MudMenuItem Label="Share" Icon="@Icons.Material.Filled.Share" OnClick="@(async () => await ShareAsync(ctx.Item))" />
+
+                            <MudMenuItem Label="@(ctx.Item.IsPinned == true ? "Unpin" : "Pin")" Icon="@Icons.Material.Filled.Favorite" IconColor="@(ctx.Item.IsPinned == true ? Color.Error : Color.Default)" OnClick="@(async () => await TogglePinnedAsync(ctx.Item))" />
 
                             @if (ctx.Item.IsContainer)
                             {
@@ -88,6 +100,9 @@
     [CascadingParameter(Name = "SubscriptionId")]
     public Guid SubscriptionId { get; set; }
 
+    [CascadingParameter(Name = "UserId")]
+    public Guid UserId { get; set; }
+
     MudDataGrid<DocumentInfo>? _dataGrid;
     bool _isLoading = true;
     List<BreadcrumbItem> _breadcrumbs = new() { new("Root", $"/", icon: Icons.Material.Filled.Home) };
@@ -106,7 +121,7 @@
         _breadcrumbs = new() { new("", $"/view/0", icon: Icons.Material.Filled.Home) };
         if (ContainerId.HasValue)
         {
-            _container = await _fileProvider.GetDocumentDetailsAsync(SubscriptionId, ContainerId.Value);
+            _container = await _fileProvider.GetDocumentDetailsAsync(UserId, SubscriptionId, ContainerId.Value);
             if (_container?.Parent != null)
             {
                 _breadcrumbs.Add(new(_container.Parent.Name, $"/view/1/{_container.Parent.Id}"));
@@ -161,7 +176,7 @@
         {
             var sort = request.SortDefinitions.FirstOrDefault();
 
-            var query = await _fileProvider.QueryContentAsync(SubscriptionId, ContainerId, request.StartIndex, request.Count, search: null, orderBy: sort?.SortBy, descending: sort?.Descending ?? false, cancellationToken: token);
+            var query = await _fileProvider.QueryContentAsync(UserId, SubscriptionId, ContainerId, request.StartIndex, request.Count, search: null, orderBy: sort?.SortBy, descending: sort?.Descending ?? false, cancellationToken: token);
 
             return new GridData<DocumentInfo>
             {
@@ -189,7 +204,7 @@
     async Task OpenNewContainerDialogAsync()
     {
         var result = await _dialogService.ShowAsync<NewContainerForm>("New Container",
-            new DialogParameters<NewContainerForm>() { { x => x.SubscriptionId, SubscriptionId }, { x => x.ContainerId, ContainerId } },
+            new DialogParameters<NewContainerForm>() { { x => x.SubscriptionId, SubscriptionId }, { x => x.ContainerId, ContainerId }, { x => x.UserId, UserId } },
             new DialogOptions
             {
                 CloseOnEscapeKey = true,
@@ -217,7 +232,7 @@
             var result = await _mudMessageBox.ShowAsync();
             if (result == true)
             {
-                await _fileProvider.DeleteAsync(SubscriptionId, item);
+                await _fileProvider.DeleteAsync(UserId, SubscriptionId, item);
                 _snackbar?.Clear();
 
                 _snackbar?.Add("Item deleted successfully.", Severity.Success);
@@ -241,10 +256,31 @@
         // }
     }
 
+    async Task TogglePinnedAsync(DocumentInfo item)
+    {
+        if (item.IsPinned == true)
+        {
+            await _fileProvider.UnpinAsync(UserId, SubscriptionId, new PinRequest { ReferenceId = item.Id, Entity = item.IsContainer ? EntityType.Container : EntityType.Document });
+            item.IsPinned = false;
+        }
+        else
+        {
+            await _fileProvider.PinAsync(UserId, SubscriptionId, new PinRequest { ReferenceId = item.Id, Entity = item.IsContainer ? EntityType.Container : EntityType.Document });
+            item.IsPinned = true;
+        }
+        _snackbar?.Clear();
+        _snackbar?.Add(item.IsPinned == true ? "Item pinned successfully." : "Item unpinned successfully.", Severity.Success);
+        if (_dataGrid != null)
+        {
+            await _dataGrid.ReloadServerData();
+        }
+        StateHasChanged();
+    }
+
     private async Task OpenUploadDialogAsync(Guid? containerId)
     {
         var httpClient = _factory.CreateClient("backend");
-        var uploadUrl = new Uri(httpClient.BaseAddress, $"/dms/api/{SubscriptionId}/documents/upload/stream");
+        var uploadUrl = new Uri(httpClient.BaseAddress, $"/dms/api/users/{UserId}/subscriptions/{SubscriptionId}/documents/upload/stream");
 
         await _uploader.InvokeVoidAsync("uploadFile", uploadUrl, containerId);
     }
