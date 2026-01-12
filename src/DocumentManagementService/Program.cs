@@ -1,7 +1,9 @@
 using DocumentManagementService.Data;
 using DocumentManagementService.Domain;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Shared.Common.Enums;
@@ -11,10 +13,24 @@ using System.Linq;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Limits.MaxRequestBodySize = null; //unlimited
+});
+
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = long.MaxValue;
+});
+
 // Add services to the container.
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
+builder.Services.AddAntiforgery(options =>
+{
+    options.HeaderName = "X-CSRF-TOKEN";
+});
 
 builder.Services.AddDbContextPool<ApplicationDbContext>(o =>
 {
@@ -42,16 +58,10 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 //app.UseOutputCache();
+app.UseAntiforgery();
 
 app.Use(async (ctx, next) =>
 {
-    //if (!ctx.Request.Headers.TryGetValue("X-Gateway-Auth", out var value)
-    //    || value != "true")
-    //{
-    //    ctx.Response.StatusCode = StatusCodes.Status403Forbidden;
-    //    return;
-    //}
-
     var subscription = ctx.GetRouteValue("subscriptionId");
     if (string.IsNullOrWhiteSpace(subscription?.ToString()) || !Guid.TryParse(subscription.ToString(), out Guid subscriptionId) || subscriptionId == Guid.Empty)
     {
@@ -231,21 +241,19 @@ documentApis.MapPost("/recyclebin/purge", async ([FromServices] IDocumentService
     return Results.Ok();
 });
 
-documentApis.MapPost("/upload/stream", async ([FromServices] ApplicationDbContext dbContext, HttpRequest request, Guid subscriptionId, [FromRoute] Guid userId, [FromHeader(Name = "X-ContainerId")] string? containerId) =>
+documentApis.MapPost("/upload/stream", async ([FromServices] ApplicationDbContext dbContext, [FromForm] IFormFile file, Guid subscriptionId, [FromRoute] Guid userId, [FromForm] string container) =>
 {
-
-    var fileNameHeader = request.Headers["X-File-Name"];
-    var fileType = request.Headers["X-File-Type"];
-    var fileName = Uri.UnescapeDataString(fileNameHeader.ToString());
+    var fileName = Uri.UnescapeDataString(file.FileName);
 
     var friendlyName = Path.GetFileNameWithoutExtension(fileName).Trim();
     var extension = Path.GetExtension(fileName);
     int index = 0;
-    var query = dbContext.Documents.Where(x => x.SubscriptionId == subscriptionId).AsQueryable();
+  
+    var query = dbContext.Documents.Where(x => x.SubscriptionId == subscriptionId && x.UserId == userId).AsQueryable();
 
-    if (Guid.TryParse(containerId, out Guid containerGuid) && containerGuid != Guid.Empty)
+    if (Guid.TryParse(container, out var containerId))
     {
-        query = query.Where(x => x.ContainerId == containerGuid);
+        query = query.Where(x => x.ContainerId == containerId);
     }
 
     while (await query.Where(x => x.Name == friendlyName).AnyAsync())
@@ -265,25 +273,25 @@ documentApis.MapPost("/upload/stream", async ([FromServices] ApplicationDbContex
         bufferSize: 1024 * 1024,
         useAsync: true);
     app.Logger.LogError("Starting file upload: {FileName} to {Path}", fileName, path);
-    app.Logger.LogError("Request Body Length: {Length}", request.ContentLength);
+    app.Logger.LogError("Request Body Length: {Length}", file.Length);
 
-    await request.Body.CopyToAsync(fs);
+    await file.CopyToAsync(fs);
 
     await dbContext.Documents.AddAsync(new LynkDocument(friendlyName)
     {
         Id = Guid.NewGuid(),
-        ContainerId = containerGuid != Guid.Empty ? containerGuid : null,
+        ContainerId = containerId == Guid.Empty ? null : containerId,
         Location = Path.Combine(d.FullName, name),
         SubscriptionId = subscriptionId,
         ModifiedOn = DateTime.UtcNow,
-        Type = fileType,
+        Type = file.ContentType,
         UserId = userId,
         Extension = extension
     });
 
     await dbContext.SaveChangesAsync();
 
-});
+}).DisableAntiforgery();
 #endregion
 
 #region Shares logic APIs

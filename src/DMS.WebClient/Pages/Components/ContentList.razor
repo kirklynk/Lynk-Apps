@@ -20,10 +20,14 @@
         </ActivatorContent>
         <ChildContent>
             <MudMenuItem Label="New Container" Icon="@Icons.Material.Filled.Folder" OnClick="OpenNewContainerDialogAsync" />
-            <MudMenuItem Label="Upload files" Icon="@Icons.Material.Filled.UploadFile" OnClick="@(async args => await OpenUploadDialogAsync(ContainerId))" />
+            <MudMenuItem Label="Upload files" Icon="@Icons.Material.Filled.UploadFile" OnClick="@(async args => await OpenFileUploaderAsync(ContainerId))" />
         </ChildContent>
     </MudMenu>
-    <input type="file" style="display:none" id="lynk-file-upload" @ref="_fileInput" />
+
+    <input type="file" style="display:none" id="lynk-file-upload" @ref="_fileInput" @onchange="FileInputChanged" multiple />
+</div>
+<div>
+    <MudProgressCircular Color="Color.Primary" Size="Size.Large" Indeterminate="false" Value="@(_percentage * 1.00)" />
 </div>
 <div>
     <MudDataGrid T="DocumentInfo" MultiSelection="true" Bordered="false" FixedHeader="true" Virtualize="true" Outlined="false" ItemSize="20.0f" Style="border: none !important;" SortMode="SortMode.Single" Loading="@_isLoading" Height="500px" Elevation="0" RowClass="row" VirtualizeServerData="GetDataAsync" RowClick="RowClicked" @ref="_dataGrid">
@@ -46,7 +50,7 @@
                         @ctx.Item.Name
                         @if (ctx.Item.IsPinned == true)
                         {
-                            <img src="images/pinned.svg" alt="Pin" title="Pinned" style="width:16px;height:16px;" />
+                            <img src="images/pinned.svg" alt="Pin" title="Pinned" style="width:20px;height:20px;" />
                         }
                     </MudStack>
                 </CellTemplate>
@@ -69,7 +73,7 @@
 
                             @if (ctx.Item.IsContainer)
                             {
-                                <MudMenuItem Label="Upload files" Icon="@Icons.Material.Filled.UploadFile" OnClick="@(async args => await OpenUploadDialogAsync(ctx.Item.Id))" />
+                                <MudMenuItem Label="Upload files" Icon="@Icons.Material.Filled.UploadFile" OnClick="@(async args => await OpenFileUploaderAsync(ctx.Item.Id))" />
                             }
 
                         </ChildContent>
@@ -113,6 +117,8 @@
     DotNetObjectReference<ContentList>? objRef;
     DocumentInfo? _container = null;
     MudMessageBox? _mudMessageBox;
+    bool _isUploading = false;
+    int _percentage = 0;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -148,7 +154,7 @@
             _uploader ??= await _jsRuntime.InvokeAsync<IJSObjectReference>("import", "./upload.js");
             objRef ??= DotNetObjectReference.Create(this);
 
-            await _uploader.InvokeVoidAsync("initializeUploader", "lynk-file-upload", objRef);
+            // await _uploader.InvokeVoidAsync("initializeUploader", "lynk-file-upload", objRef);
         }
     }
 
@@ -277,16 +283,25 @@
         StateHasChanged();
     }
 
-    private async Task OpenUploadDialogAsync(Guid? containerId)
+    private async Task OpenFileUploaderAsync(Guid? containerId)
+    {
+        await _uploader.InvokeVoidAsync("openFileInput", _fileInput, containerId);
+        _isUploading = false;
+        _percentage = 0;
+        StateHasChanged();
+    }
+
+    private async Task FileInputChanged(ChangeEventArgs args)
     {
         var httpClient = _factory.CreateClient("backend");
         var uploadUrl = new Uri(httpClient.BaseAddress, $"/dms/api/users/{UserId}/subscriptions/{SubscriptionId}/documents/upload/stream");
-
-        await _uploader.InvokeVoidAsync("uploadFile", uploadUrl, containerId);
+        await _uploader.InvokeVoidAsync("uploadAsync", _fileInput, uploadUrl.ToString(), objRef);
+        _isUploading = true;
+        StateHasChanged();
     }
 
-    [JSInvokable("onFileUploadCompleted")]
-    public async Task OnUploadCompleteAsync(bool success)
+    [JSInvokable("OnUploadComplete")]
+    public async Task OnUploadComplete(bool success, string message)
     {
         if (success && _dataGrid != null)
         {
@@ -299,6 +314,20 @@
         {
             await _dialogService.ShowMessageBox("Upload Failed", "File upload failed.");
         }
+        _isUploading = false;
+        StateHasChanged();
+    }
+
+    [JSInvokable("UpdateProgress")]
+    public async Task UpdateProgress(int percentage, string file)
+    {
+        await InvokeAsync(() =>
+        {
+            _percentage = percentage;
+            StateHasChanged();
+            _logger.LogInformation("Upload progress for file {File}: {Percentage}%", file, percentage);
+        });
+
     }
 
     private async Task ShareAsync(DocumentInfo documentInfo)
@@ -310,7 +339,6 @@
                 CloseOnEscapeKey = true,
                 NoHeader = true,
                 MaxWidth = MaxWidth.Medium,
-
                 Position = DialogPosition.Center,
                 CloseButton = true
             });

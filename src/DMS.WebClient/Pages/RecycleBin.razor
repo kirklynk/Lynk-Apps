@@ -1,9 +1,9 @@
-﻿@page "/recyclebin"
+﻿@page "/view/3"
 @inject ILogger<RecycleBin> _logger
 @implements IDisposable
 
 <MudPaper Elevation="0" Style="margin-bottom: 5px;">
-    <MudBreadcrumbs Items="@([new BreadcrumbItem("", href: "/", icon: Icons.Material.Filled.Home), new BreadcrumbItem("Recycle Bin", href: "/recyclebin", disabled: true)])"></MudBreadcrumbs>
+    <MudBreadcrumbs Items="@([new BreadcrumbItem("", href: "/", icon: Icons.Material.Filled.Home), new BreadcrumbItem("Recycle Bin", href: "/view/3", disabled: true)])"></MudBreadcrumbs>
     <MudText Style="font-size: 2rem; padding-left: 10px;">Recycle Bin</MudText>
 </MudPaper>
 

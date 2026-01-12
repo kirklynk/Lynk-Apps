@@ -3,13 +3,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace DocumentManagementService.Data
 {
-    internal class ApplicationDbContext : DbContext
+    internal class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : DbContext(options)
     {
-        public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
-            : base(options)
-        {
-        }
-
+        
         public DbSet<LynkDocument> Documents { get; set; }
         public DbSet<LynkContainer> Containers { get; set; }
         public DbSet<LynkTag> Tags { get; set; }

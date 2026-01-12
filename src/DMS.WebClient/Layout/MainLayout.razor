@@ -19,7 +19,7 @@
                     <MudLayout>
                         <MudAppBar Elevation="0" Class="menu-background" Color="Color.Primary">
                             <MudIconButton Icon="@Icons.Material.Outlined.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@((e) => DrawerToggle())" />
-                            <MudText Typo="Typo.h5" Class="ml-3">Lynk Document Management System</MudText>
+                            <MudText Typo="Typo.h5" Class="ml-3">Lynk Drive</MudText>
                             <MudSpacer />
                             <MudSwitch T="bool" Value="_appSettings.IsDarkMode" TriState="false" ValueChanged="SaveModeAsync" Label="Dark Mode" title="Enable dark mode" />
                             <MudIconButton Icon="@Icons.Material.Outlined.Logout" Color="Color.Inherit" Edge="Edge.End" OnClick="LogoutAsync" />
@@ -32,15 +32,14 @@
                                     <MudNavMenu>
                                         <MudNavLink Match="NavLinkMatch.All" Icon="@Icons.Material.Outlined.Home" Href="/" ForceLoad="true">Home</MudNavLink>
                                         <MudNavLink Match="NavLinkMatch.All" Icon="@Icons.Material.Outlined.Folder" Href="/view/0" ForceLoad="true" title="My files">My Files</MudNavLink>
-                                        <MudNavLink Match="NavLinkMatch.All" Icon="@Icons.Material.Outlined.People" Href="/shared" title="Shared" ForceLoad="true">Shared</MudNavLink>
-                                        <MudNavLink Match="NavLinkMatch.All" Icon="@Icons.Material.Outlined.Delete" Href="/recyclebin" title="Recycle Bin">Recycle Bin</MudNavLink>
+                                        <MudNavLink Match="NavLinkMatch.All" Icon="@Icons.Material.Outlined.People" Href="/view/2" title="Shared" ForceLoad="true">Shared</MudNavLink>
+                                        <MudNavLink Match="NavLinkMatch.All" Icon="@Icons.Material.Outlined.Delete" Href="/view/3" title="Recycle Bin">Recycle Bin</MudNavLink>
                                     </MudNavMenu>
                                     <MudSpacer />
                                     <MudNavMenu>
                                         <MudNavLink Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Outlined.Settings" Href="/settings" title="Settings">Settings</MudNavLink>
                                         <MudNavLink Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Outlined.Logout" OnClick="LogoutAsync" title="Logout">Logout</MudNavLink>
-                                    </MudNavMenu>
-                                   
+                                    </MudNavMenu>                                   
                                 </MudDrawer>
                             </Authorized>
                         </AuthorizeView>

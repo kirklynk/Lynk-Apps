@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authentication.BearerToken;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.Data;
@@ -16,6 +17,17 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+
+builder.WebHost.ConfigureKestrel(options=>
+{
+    options.Limits.MaxRequestBodySize = null; //unlimited
+});
+
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = int.MaxValue; 
+});
+
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
     options.UseSqlServer(connectionString);
@@ -26,19 +38,18 @@ builder.Services.AddDefaultIdentity<User>(options => options.SignIn.RequireConfi
     .AddSignInManager<SignInManager<User>>()
     .AddUserManager<UserManager<User>>();
 
-
 // YARP: add the reverse proxy services
 builder.Services.AddReverseProxy()
-    .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
-    .AddTransforms(context =>
-    {
-        // Mark requests as coming from the trusted gateway
-        context.AddRequestTransform(ctx =>
-        {
-            ctx.ProxyRequest.Headers.Add("X-Gateway-Auth", "true");
-            return ValueTask.CompletedTask;
-        });
-    });
+    .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
+    //.AddTransforms(context =>
+    //{
+    //    // Mark requests as coming from the trusted gateway
+    //    context.AddRequestTransform(ctx =>
+    //    {
+    //        ctx.ProxyRequest.Headers.Add("X-Gateway-Auth", "true");
+    //        return ValueTask.CompletedTask;
+    //    });
+    //});
 
 builder.Services.AddAuthorizationBuilder()
     .AddPolicy("Dms", policy =>
