@@ -1,40 +1,72 @@
 ﻿let _containerId;
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 export function openFileInput(inputElement, containerId) {
+    inputElement.value = null; // Reset the input
     inputElement.click();
     _containerId = containerId;
 }
 
 export function uploadAsync(inputElement, uploadUrl, dotNetHelper) {
-        return new Promise((resolve) => {
-            const file = inputElement.files[0];
-            if (!file) return;
+    return new Promise(async (resolve) => {
+        await dotNetHelper.invokeMethodAsync('ResetProgress');
+        const files = Array.from(inputElement.files);
+        if (files.length === 0) {
+            return;
+        }
 
-            const xhr = new XMLHttpRequest();
+        var uploadedFiles = [];
+        files.forEach(file => {
+            uploadedFiles.push({
+                name: file.name,
+                status: "Waiting",
+                progress: 0
+            });
+
+        });
+
+        await dotNetHelper.invokeMethodAsync('onUploadStarted', uploadedFiles);
+
+        const xhr = new XMLHttpRequest();
+        let index = 0;
+        for (let index = 0; index < files.length; index++) {
+
+            const selectedFile = files[index];
+
+            dotNetHelper.invokeMethodAsync('UpdateProgress', selectedFile.name, 'Uploading', 0);
+
             const formData = new FormData();
-            formData.append("file", file);
+
+            formData.append("file", selectedFile);
             formData.append("container", _containerId);
-            console.log("Uploading file:", file.name, "to", uploadUrl);
-            
-            // Progress tracking
+
             xhr.upload.onprogress = (e) => {
+
                 if (e.lengthComputable) {
                     const percent = Math.round((e.loaded / e.total) * 100);
-                    dotNetHelper.invokeMethodAsync('UpdateProgress', percent, file.name);
+                    dotNetHelper.invokeMethodAsync('UpdateProgress', selectedFile.name, 'Uploading', percent);
                 }
             };
 
-            // Completion handling
             xhr.onload = () => {
+                uploadedFiles.push({ file: selectedFile.name });
                 if (xhr.status >= 200 && xhr.status < 300) {
-                    dotNetHelper.invokeMethodAsync('OnUploadComplete', true, "Upload Finished!");
+                    dotNetHelper.invokeMethodAsync('onFileUploaded', selectedFile.name, 'Completed');
                 } else {
-                    dotNetHelper.invokeMethodAsync('OnUploadComplete', false, "Server Error: " + xhr.status);
+                    dotNetHelper.invokeMethodAsync('onFileUploaded', selectedFile.name, 'Failed');
                 }
             };
 
             xhr.open("POST", uploadUrl);
             xhr.send(formData);
-        });
+
+            while (xhr.readyState !== XMLHttpRequest.DONE) {
+                await sleep(50);
+            }
+        }
+
+        resolve();
+        await dotNetHelper.invokeMethodAsync('onFileUploadCompleted');
+    });
 }
 

@@ -7,7 +7,7 @@ namespace DocumentManagementService.Domain
         public Guid Id { get; set; }
 
         [Required]
-        public string? Name { get; set; }
+        public string Name { get; set; } = string.Empty;
       
         [Required]
         public Guid SubscriptionId { get; set; }

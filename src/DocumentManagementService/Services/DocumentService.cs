@@ -125,22 +125,21 @@ namespace DocumentManagementService.Services
         public async Task<QuerySet<DocumentInfo>> QueryContentAsync(Guid userId, Guid subscriptionId, Guid? ContainerId = null, int skip = 0, int take = 10, string? search = "", string? orderBy = null, bool descending = false, CancellationToken cancellationToken = default)
         {
             var Containers = dbContext.Containers
-            .Where(f => f.SubscriptionId == subscriptionId && f.UserId == userId && ((f.ParentId == null && ContainerId == null) || f.ParentId == ContainerId))
-            .Select(f => new { f.Id, f.Name, IsContainer = true, f.ModifiedOn, Type = "" });
+                .Where(f => f.SubscriptionId == subscriptionId && f.UserId == userId && ((f.ParentId == null && ContainerId == null) || f.ParentId == ContainerId))
+                .Select(f => new { f.Id, Name = f.Name!, IsContainer = true, ModifiedOn = f.ModifiedOn, Type = "" });
 
-            var documents = dbContext.Documents.Where(d => d.SubscriptionId == subscriptionId && d.UserId == userId && ((d.ContainerId == null && ContainerId == null) || d.ContainerId == ContainerId))
-                .Select(d => new { d.Id, d.Name, IsContainer = false, d.ModifiedOn, d.Type });
-            var pinned = dbContext.PinnedObjects.IgnoreQueryFilters();
+            var documents = dbContext.Documents
+                .Where(d => d.SubscriptionId == subscriptionId && d.UserId == userId && ((d.ContainerId == null && ContainerId == null) || d.ContainerId == ContainerId))
+                .Select(d => new { d.Id, Name = d.Name!, IsContainer = false, ModifiedOn = d.ModifiedOn, Type = d.Type! });
+
             var query = Containers.Union(documents);
-
-
 
             if (!string.IsNullOrEmpty(search))
             {
                 query = query.Where(f => f.Name.Contains(search));
             }
 
-            query = orderBy.ToLower() switch
+            query = orderBy?.ToLower() switch
             {
                 "name" => !descending ? query.OrderByDescending(x => x.IsContainer).ThenBy(f => f.Name) : query.OrderByDescending(x => x.IsContainer).ThenByDescending(f => f.Name),
                 "modifiedon" => !descending ? query.OrderByDescending(x => x.IsContainer).ThenBy(f => f.ModifiedOn) : query.OrderByDescending(x => x.IsContainer).ThenByDescending(f => f.ModifiedOn),
@@ -148,7 +147,9 @@ namespace DocumentManagementService.Services
             };
 
             var count = await query.CountAsync();
-            query = query.Skip(skip).Take(take);
+            query = query.Skip(skip).Take(take); 
+            
+            var pinned = dbContext.PinnedObjects.IgnoreQueryFilters();
 
             var query1 = query.LeftJoin(pinned, a => a.Id, b => b.ReferenceId, (co, a) => new
             {

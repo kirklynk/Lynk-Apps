@@ -10,6 +10,7 @@ using Shared.Common.Enums;
 using Shared.Common.Interfaces;
 using Shared.Models;
 using System.Linq;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -243,12 +244,13 @@ documentApis.MapPost("/recyclebin/purge", async ([FromServices] IDocumentService
 
 documentApis.MapPost("/upload/stream", async ([FromServices] ApplicationDbContext dbContext, [FromForm] IFormFile file, Guid subscriptionId, [FromRoute] Guid userId, [FromForm] string container) =>
 {
+
     var fileName = Uri.UnescapeDataString(file.FileName);
 
     var friendlyName = Path.GetFileNameWithoutExtension(fileName).Trim();
     var extension = Path.GetExtension(fileName);
     int index = 0;
-  
+
     var query = dbContext.Documents.Where(x => x.SubscriptionId == subscriptionId && x.UserId == userId).AsQueryable();
 
     if (Guid.TryParse(container, out var containerId))

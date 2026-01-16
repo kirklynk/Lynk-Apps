@@ -2,7 +2,7 @@
 
 namespace DocumentManagementService.Domain
 {
-    internal record LynkDocument([Required] string? Name)
+    internal record LynkDocument([Required] string Name)
     {
         public Guid Id { get; set; }
 
