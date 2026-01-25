@@ -4,38 +4,43 @@
 @inject ILogger<ContentList> _logger
 
 @inject IHttpClientFactory _factory
-<PageTitle>DMS - @(_container?.Name ?? $"My Files")</PageTitle>
 
-<div>
-    <MudBreadcrumbs Items="_breadcrumbs" />
-</div>
+<PageHeader Title="@Title">
+    <HeaderContent>
+        <div>
+            <MudBreadcrumbs Items="_breadcrumbs" />
+        </div>
+        <div>
+            <MudText HtmlTag="h2" Style="font-size: 2rem; padding-left: 10px;">
+                @Title
+            </MudText>
+        </div>
+    </HeaderContent>
+    <ChildContent>
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+            <MudMenu Style="padding: 0.5rem; width: 100%;" AnchorOrigin="Origin.BottomLeft" Color="Color.Primary">
+                <ActivatorContent>
+                    <MudFab Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" Size="Size.Medium" Label="Create or upload" Class="hide-button-small" />
+                    <MudFab Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" Size="Size.Small" Class="show-button-small" />
+                </ActivatorContent>
+                <ChildContent>
+                    <MudMenuItem Label="New Container" Icon="@Icons.Material.Filled.Folder" OnClick="OpenNewContainerDialogAsync" />
+                    <MudMenuItem Label="Upload files" Disabled="_isUploading" Icon="@Icons.Material.Filled.UploadFile" OnClick="@(async args => await OpenFileUploaderAsync(ContainerId))" />
+                </ChildContent>
+            </MudMenu>
+            <MudTextField Value="_search" Placeholder="Search files..." Adornment="Adornment.End" T="string" AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Immediate="true" ValueChanged="@(async (x) => { _search = x; await _dataGrid!.ReloadServerData(); })" Style="width: 200px;" Clearable="true" InputType="InputType.Search" DebounceInterval="500" Variant="Variant.Text" />
+        </MudStack>
+        <input type="file" style="display:none" id="lynk-file-upload" @ref="_fileInput" @onchange="FileInputChanged" multiple />
+    </ChildContent>
+</PageHeader>
+@if (_isUploading)
+{
+    <div>
+        <MudStack>
+            <MudProgressLinear Color="Color.Primary" Size="Size.Large" Indeterminate="false" Value="@(_percentage * 1.00)" />
 
-<MudText HtmlTag="h2" Style="font-size: 1.5rem; margin-bottom: 1rem;">
-    @(_container?.Name ?? $"My Files")
-</MudText>
-
-<div style="margin-bottom: .5rem;">
-    <MudMenu Style="padding: 0.5rem; width: 100%;" AnchorOrigin="Origin.BottomLeft" Color="Color.Primary">
-        <ActivatorContent>
-            <MudFab Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" Size="Size.Medium" Label="Create or upload" />
-        </ActivatorContent>
-        <ChildContent>
-            <MudMenuItem Label="New Container" Icon="@Icons.Material.Filled.Folder" OnClick="OpenNewContainerDialogAsync" />
-            <MudMenuItem Label="Upload files" Icon="@Icons.Material.Filled.UploadFile" OnClick="@(async args => await OpenFileUploaderAsync(ContainerId))" />
-        </ChildContent>
-    </MudMenu>
-
-    <input type="file" style="display:none" id="lynk-file-upload" @ref="_fileInput" @onchange="FileInputChanged" multiple />
-</div>
-<div>
-
-
-    <MudStack>
-        <MudProgressLinear Color="Color.Primary" Size="Size.Large" Indeterminate="false" Value="@(_percentage * 1.00)" />
-        @if (_isUploading)
-        {
             <MudText Typo="Typo.subtitle2">Please do not close this page while upload is in progress.</MudText>
-            <MudGrid Style="max-height: 100px; overflow-y: auto;">
+            <MudGrid>
                 @foreach (var item in _filesBeingUploaded)
                 {
                     <MudItem xs="6">
@@ -46,70 +51,79 @@
                     </MudItem>
                 }
             </MudGrid>
-        }
-
-    </MudStack>
-</div>
-<MudDataGrid T="DocumentInfo" MultiSelection="true" Bordered="false" FixedHeader="true" Virtualize="true" Outlined="false" ItemSize="20.0f" Style="border: none !important;" SortMode="SortMode.Single" Loading="@_isLoading" Height="500px" Elevation="0" RowClass="row" VirtualizeServerData="GetDataAsync" RowClick="RowClicked" @ref="_dataGrid">
-    <Columns>
-        <TemplateColumn CellStyle="width: 24px;" Context="ctx" HideSmall="true">
-            <CellTemplate>
-                @if (ctx.Item.IsContainer)
-                {
-                    <img src="images/folder.svg" alt="Container" style="width:24px;height:24px;" />
-                }
-                else
-                {
-                    <img src="images/document.svg" alt="Document" style="width:24px;height:24px;" />
-                }
-            </CellTemplate>
-        </TemplateColumn>
-        <TemplateColumn SortBy="x => x.Name" Context="ctx">
-            <HeaderTemplate>
-                Name
-            </HeaderTemplate>
-            <CellTemplate>
-                <MudStack Row="true" Justify="Justify.SpaceBetween">
-                    @ctx.Item.Name
-                    @if (ctx.Item.IsPinned == true)
+        </MudStack>
+    </div>
+}
+else
+{
+    <MudDataGrid T="DocumentInfo" MultiSelection="true" Bordered="false" FixedHeader="true" Virtualize="true" Outlined="false" ItemSize="10.0f" SortMode="SortMode.Single" Loading="@_isLoading" Elevation="0" RowClass="row" VirtualizeServerData="GetDataAsync" Height="500px" RowClick="RowClicked" Dense="true" @ref="_dataGrid">
+        <Columns>
+            <TemplateColumn CellStyle="width: 24px;" Context="ctx" HideSmall="true">
+                <CellTemplate>
+                    @if (ctx.Item.IsContainer)
                     {
-                        <MudIcon Icon="@Icons.Material.Filled.PushPin" Color="Color.Error" aria-describedby="@($"{ctx.Item.Name} pinned")" Title="Pinned" />
+                        <img src="images/folder.svg" alt="Container" style="width:24px;height:24px;" />
                     }
-                </MudStack>
-            </CellTemplate>
-        </TemplateColumn>
-        <PropertyColumn Property="x => x.ModifiedOn" SortBy="x => x.IsContainer" HideSmall="true" />
-        <TemplateColumn CellStyle="width: 24px;" Context="ctx">
-            <CellTemplate>
-                <MudMenu AnchorOrigin="Origin.CenterLeft" Color="Color.Primary">
-                    <ActivatorContent>
-                        <MudIconButton Icon="@Icons.Material.Filled.MoreVert" Color="Color.Inherit" Edge="Edge.End" />
-                    </ActivatorContent>
-                    <ChildContent>
-                        <MudMenuItem Label="Delete" Icon="@Icons.Material.Filled.Delete" OnClick="@(async () => await DeleteAsync(ctx.Item.Id))" />
-
-                        <MudMenuItem Label="Rename" Icon="@Icons.Material.Filled.TextFields" />
-
-                        <MudMenuItem Label="Share" Icon="@Icons.Material.Filled.Share" OnClick="@(async () => await ShareAsync(ctx.Item))" />
-
-                        <MudMenuItem Label="@(ctx.Item.IsPinned == true ? "Unpin" : "Pin")" Icon="@Icons.Material.Filled.PushPin" IconColor="@(ctx.Item.IsPinned == true ? Color.Error : Color.Default)" OnClick="@(async () => await TogglePinnedAsync(ctx.Item))" />
-
-                        @if (ctx.Item.IsContainer)
+                    else
+                    {
+                        <img src="images/document.svg" alt="Document" style="width:24px;height:24px;" />
+                    }
+                </CellTemplate>
+            </TemplateColumn>
+            <TemplateColumn SortBy="x => x.Name" Context="ctx" Sortable="true" Title="Name" CellClass="justify-start">
+                <CellTemplate>
+                    <MudStack Row="true" Justify="Justify.SpaceBetween">
+                        @($"{ctx.Item.Name}{ctx.Item.Extension}")
+                        @if (ctx.Item.IsPinned == true)
                         {
-                            <MudMenuItem Label="Upload files" Icon="@Icons.Material.Filled.UploadFile" OnClick="@(async args => await OpenFileUploaderAsync(ctx.Item.Id))" />
+                            <MudIcon Icon="@Icons.Material.Filled.PushPin" Color="Color.Error" aria-describedby="@($"{ctx.Item.Name} pinned")" Title="Pinned" />
                         }
+                    </MudStack>
+                </CellTemplate>
+            </TemplateColumn>
+            <PropertyColumn Property="x => x.ModifiedOn" Title="Modified On" SortBy="x => x.IsContainer" HideSmall="true" CellStyle="width: 200px;" Hideable="true" />
+            <TemplateColumn Context="ctx" HideSmall="true" Hideable="true" Title="Size" CellStyle="width: 120px;">
+                <CellTemplate>
+                    @if (!ctx.Item.IsContainer)
+                    {
+                        <text>@ctx.Item.Size.FormatFileSize()</text>
+                    }
+                </CellTemplate>
+            </TemplateColumn>
+            <TemplateColumn CellStyle="width: 24px;" Context="ctx">
+                <CellTemplate>
+                    <MudMenu AnchorOrigin="Origin.CenterLeft" Color="Color.Primary">
+                        <ActivatorContent>
+                            <MudIconButton Icon="@Icons.Material.Filled.MoreVert" Color="Color.Inherit" Edge="Edge.End" />
+                        </ActivatorContent>
+                        <ChildContent>
+                            <MudMenuItem Label="Delete" Icon="@Icons.Material.Filled.Delete" OnClick="@(async () => await DeleteAsync(ctx.Item.Id))" />
 
-                    </ChildContent>
-                </MudMenu>
-            </CellTemplate>
-        </TemplateColumn>
-    </Columns>
-    <NoRecordsContent>
-        <EmptyContent />
-    </NoRecordsContent>
-</MudDataGrid>
+                            @* <MudMenuItem Label="Rename" Icon="@Icons.Material.Filled.TextFields" />
 
+                         <MudMenuItem Label="Share"  Icon="@Icons.Material.Filled.Share" OnClick="@(async () => await ShareAsync(ctx.Item))" /> *@
 
+                            <MudMenuItem Label="@(ctx.Item.IsPinned == true ? "Unpin" : "Pin")" Icon="@Icons.Material.Filled.PushPin" IconColor="@(ctx.Item.IsPinned == true ? Color.Error : Color.Default)" OnClick="@(async () => await TogglePinnedAsync(ctx.Item))" />
+
+                            @if (ctx.Item.IsContainer)
+                            {
+                                <MudMenuItem Label="Upload files" Icon="@Icons.Material.Filled.UploadFile" OnClick="@(async args => await OpenFileUploaderAsync(ctx.Item.Id))" />
+                            }
+                            else
+                            {
+                                <MudMenuItem Label="Download" Icon="@Icons.Material.Filled.FileDownload" OnClick="@(async args => await DownloadFileAsync(ctx.Item.Id))" />
+                            }
+
+                        </ChildContent>
+                    </MudMenu>
+                </CellTemplate>
+            </TemplateColumn>
+        </Columns>
+        <NoRecordsContent>
+            <EmptyContent />
+        </NoRecordsContent>
+    </MudDataGrid>
+}
 <MudMessageBox @ref="_mudMessageBox" Title="Warning" CancelText="Cancel">
     <MessageContent>
         Are you sure you want to move this item to the recycle bin, you will have 30 days to recover it?
@@ -130,7 +144,7 @@
     [CascadingParameter(Name = "UserId")]
     public Guid UserId { get; set; }
 
-    List<BreadcrumbItem> _breadcrumbs = new() { new("Root", $"/", icon: Icons.Material.Filled.Home) };
+    List<BreadcrumbItem> _breadcrumbs = new() { new("Root", $"/", icon: Icons.Material.Filled.Home), new BreadcrumbItem(_defaultTitle, $"/view/1/", icon: Icons.Material.Filled.Folder) };
 
     ElementReference _fileInput;
     MudDataGrid<DocumentInfo>? _dataGrid;
@@ -143,27 +157,40 @@
     bool _isLoading = true;
     bool _isUploading = false;
     int _percentage = 0;
+    string? _search = null;
     List<UploadInfo> _filesBeingUploaded = [];
+    string Title => _container != null ? _container.Name : _defaultTitle;
+    const string _defaultTitle = "My Files";
 
     protected override async Task OnParametersSetAsync()
     {
         _container = null;
         _logger.LogInformation("OnParametersSetAsync called with ContainerId: {ContainerId}", ContainerId);
-        _breadcrumbs = new() { new("", $"/view/0", icon: Icons.Material.Filled.Home) };
+        _breadcrumbs = new() { new("", $"/", icon: Icons.Material.Filled.Home) };
         if (ContainerId.HasValue)
         {
-            _container = await _fileProvider.GetDocumentDetailsAsync(UserId, SubscriptionId, ContainerId.Value);
+            _container = await _fileProvider.GetDetailsAsync(UserId, SubscriptionId, ContainerId.Value);
             if (_container?.Parent != null)
             {
-                _breadcrumbs.Add(new(_container.Parent.Name, $"/view/1/{_container.Parent.Id}"));
-            }
-            _breadcrumbs.Add(new(_container.Name, $"/view/1/{_container.Id}", disabled: true));
+                if (_container.Parent.Parent != null)
+                {
+                    _breadcrumbs.Add(new("", $"/view/1/{_container.Parent.Parent.Id}", icon: Icons.Material.Filled.FirstPage));
+                }
+                else
+                {
+                    _breadcrumbs.Add(new("", $"/view/0", icon: Icons.Material.Filled.FirstPage));
+                }
 
+                _breadcrumbs.Add(new(_container.Parent.Name, $"/view/1/{_container.Parent.Id}"));
+
+            }
+            else
+            {
+                _breadcrumbs.Add(new(_defaultTitle, $"/view/0"));
+            }
         }
-        else
-        {
-            _breadcrumbs = new() { new("", $"/", icon: Icons.Material.Filled.Home) };
-        }
+        _breadcrumbs.Add(new(Title, $"/view/0", disabled: true));
+
         if (_dataGrid != null)
         {
             await _dataGrid!.ReloadServerData();
@@ -206,8 +233,13 @@
         try
         {
             var sort = request.SortDefinitions.FirstOrDefault();
+            var sortBy = sort?.SortBy ?? string.Empty;
+            if (Guid.TryParse(sortBy, out var sortGuid))
+            {
+                sortBy = _dataGrid!.RenderedColumns.FirstOrDefault(c => c.PropertyName == sortBy)!.Title;
+            }
 
-            var query = await _fileProvider.QueryContentAsync(UserId, SubscriptionId, ContainerId, request.StartIndex, request.Count, search: null, orderBy: sort?.SortBy, descending: sort?.Descending ?? false, cancellationToken: token);
+            var query = await _fileProvider.QueryContentAsync(UserId, SubscriptionId, ContainerId, request.StartIndex, request.Count, search: _search, orderBy: sortBy, descending: sort?.Descending ?? false, cancellationToken: token);
 
             return new GridData<DocumentInfo>
             {
@@ -280,7 +312,7 @@
     {
         if (item.IsPinned == true)
         {
-            await _fileProvider.UnpinAsync(UserId, SubscriptionId, new PinRequest { ReferenceId = item.Id, Entity = item.IsContainer ? EntityType.Container : EntityType.Document });
+            await _fileProvider.UnpinAsync(UserId, SubscriptionId, new List<PinRequest> { new PinRequest { ReferenceId = item.Id, Entity = item.IsContainer ? EntityType.Container : EntityType.Document } });
             item.IsPinned = false;
         }
         else
@@ -312,6 +344,7 @@
         _isUploading = true;
         StateHasChanged();
     }
+
 
     private async Task ShareAsync(DocumentInfo documentInfo)
     {
@@ -384,6 +417,13 @@
         StateHasChanged();
     }
 
+    private async Task DownloadFileAsync(Guid documentId)
+    {
+        var httpClient = _factory.CreateClient("backend");
+        var uploadUrl = new Uri(httpClient.BaseAddress, $"/dms/api/users/{UserId}/subscriptions/{SubscriptionId}/documents/{documentId}/download");
+        await _jsRuntime.InvokeVoidAsync("download", uploadUrl.ToString());
+    }
+
     public void Dispose()
     {
         _uploader?.DisposeAsync();
@@ -397,8 +437,32 @@
     }
 }
 <style>
-    .row, .row > td.mud-table-row {
-        border-bottom: none !important;
+
+    @@media (max-width: 600px) {
+        .hide-button-small {
+            display: none;
+        }
+
+        .show-button-small {
+            display: flex;
+        }
+
+        .mud-xs-table .mud-table-cell-hide {
+            visibility: collapse;
+            height: 0;
+            padding: 0;
+            margin: 0;
+            display: none;
+        }
     }
 
+    @@media (min-width: 600px) {
+        .hide-button-small {
+            display: flex;
+        }
+
+        .show-button-small {
+            display: none;
+        }
+    }
 </style>

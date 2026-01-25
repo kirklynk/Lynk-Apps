@@ -5,7 +5,7 @@ namespace DocumentManagementService.Data
 {
     internal class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : DbContext(options)
     {
-        
+
         public DbSet<LynkDocument> Documents { get; set; }
         public DbSet<LynkContainer> Containers { get; set; }
         public DbSet<LynkTag> Tags { get; set; }
@@ -58,11 +58,10 @@ namespace DocumentManagementService.Data
 
             modelBuilder.Entity<LynkPin>(e =>
             {
-                e.HasKey(p => new { p.ReferenceId, p.UserId });
-                e.Property(p => p.UserId).IsRequired();
+                e.HasKey(p => new { p.ReferenceId, p.UserSubscriptionId });
                 e.Property(p => p.Entity)
-                    .HasConversion<byte>()
-                    .HasColumnName("EntityTypeId");
+            .HasConversion<byte>()
+            .HasColumnName("EntityTypeId");
                 e.ToTable("PinnedObjects");
             });
 

@@ -9,8 +9,11 @@
                 <ValidationMessage For="@(() => Container.Name)" />
             </MudItem>
             <MudItem xs="12">
+                <MudText Color="Color.Error">@_errorMessage</MudText>
+            </MudItem>
+            <MudItem xs="12">
                 <MudStack Row="true" AlignItems="AlignItems.End" Justify="Justify.FlexEnd">
-                    <MudButton ButtonType="ButtonType.Button" Color="Color.Primary" Variant="Variant.Outlined" OnClick="@(() => MudDialog.Cancel())">Cancel</MudButton>
+                    <MudButton ButtonType="ButtonType.Button" Color="Color.Primary" Variant="Variant.Text" OnClick="@(() => MudDialog.Cancel())">Cancel</MudButton>
                     <MudButton ButtonType="ButtonType.Submit" Color="Color.Primary" Variant="Variant.Filled" Disabled="_submitting">Create</MudButton>
                 </MudStack>
             </MudItem>
@@ -36,9 +39,12 @@
     [CascadingParameter]
     private IMudDialogInstance MudDialog { get; set; }
 
+    string _errorMessage = string.Empty;
+
     async Task OnValidSubmitAsync()
     {
         _submitting = true;
+        _errorMessage = string.Empty;
         StateHasChanged();
 
         try
@@ -49,14 +55,14 @@
             }
 
             var fileDetails = await _fileProvider.CreateContainerAsync(UserId, SubscriptionId, Container);
-
+            
             MudDialog.Close(fileDetails);
         }
         catch (Exception ex)
         {
-
+            _errorMessage = ex.Message;
         }
         _submitting = false;
-        StateHasChanged();        
+        StateHasChanged();
     }
 }

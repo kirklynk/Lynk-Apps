@@ -48,6 +48,10 @@
             getItem: function (key) { return localStorage.getItem(key); },
             removeItem: function (key) { localStorage.removeItem(key); }
         };
+
+        window.download = function (url) {
+            window.open(url, '_blank');
+        }
     </script>
 </body>
 

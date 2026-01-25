@@ -1,26 +1,134 @@
 ﻿@page "/"
 @using System.Security.Principal
+@using System.Threading.Tasks
 
+<PageHeader Title="Home">
+    <HeaderContent>
+        <div>
+            <MudBreadcrumbs Items="[]">
 
-<PageTitle>Home</PageTitle>
+            </MudBreadcrumbs>
+        </div>
+        <div>
+            <MudText HtmlTag="h2" Style="font-size: 1.5rem; margin-bottom: 1rem;">
+                Hello @User
+            </MudText>
+        </div>
+    </HeaderContent>
+    <ChildContent>
+        <div>
+            <MudToggleGroup T="ViewMode" Color="Color.Primary" Style="max-width: 600px;" Outlined="false" Vertical="false" Delimiters="true" Value="_viewMode" ValueChanged="OnViewModeChanged" SelectionMode="SelectionMode.ToggleSelection">
+                <MudToggleItem Value="ViewMode.Pinned" Text="Pinned" />
+                <MudToggleItem Value="ViewMode.Recent" Text="Recent" />
+            </MudToggleGroup>
+        </div>
+
+    </ChildContent>
+</PageHeader>
+
 <div>
-    <MudBreadcrumbs Items="[]">
-
-    </MudBreadcrumbs>
+    @if (_selected.Count > 0)
+    {
+        <MudButton Variant="Variant.Text" Color="Color.Error" StartIcon="@Icons.Material.Filled.PushPin" OnClick="RemoveSelectedPinnedItemsAsync">
+            Unpin selection
+        </MudButton>
+    }
 </div>
-<MudText HtmlTag="h2" Style="font-size: 1.5rem; margin-bottom: 1rem;">
-   Hello @User    
-</MudText>
-<p>
-    Here is your quick glance.
-</p>
-
-<p>
- 
-</p>
+<MudDataGrid T="DocumentInfo" AllowUnsorted="false" SortMode="SortMode.None" Items="_results" @ref="_dataGrid" Loading="@_isLoading" Bordered="false" RowClick="RowClicked" Elevation="0" Dense="false" MultiSelection="true" Groupable="false" SelectedItems="_selected" SelectedItemsChanged="@(() => StateHasChanged())" SelectedItemChanged="@(() => StateHasChanged())">
+    <Columns>
+        <SelectColumn Hideable="true" Size="Size.Small" Hidden="_results.Count == 0" />
+        <TemplateColumn CellStyle="padding-left: 0 !important; padding-right: 0 !important; width: 24px;" Context="ctx" HideSmall="true" Hidden="_results.Count == 0">
+            <CellTemplate>
+                @if (ctx.Item.IsContainer)
+                {
+                    <img src="images/folder.svg" alt="Container" style="width:24px;height:24px;" />
+                }
+                else
+                {
+                    <img src="images/document.svg" alt="Document" style="width:24px;height:24px;" />
+                }
+            </CellTemplate>
+        </TemplateColumn>
+        <PropertyColumn Property="x => x.Name" SortBy="x => x.Name" />
+    </Columns>
+    <NoRecordsContent>
+        <EmptyContent />
+    </NoRecordsContent>
+</MudDataGrid>
 
 @code {
+
     [CascadingParameter(Name = "User")]
     public string? User { get; set; }
+
+    [CascadingParameter(Name = "SubscriptionId")]
+    public Guid SubscriptionId { get; set; }
+
+    [CascadingParameter(Name = "UserId")]
+    public Guid UserId { get; set; }
+
+    ViewMode _viewMode = ViewMode.Pinned;
+
+    CancellationTokenSource _cts = new CancellationTokenSource();
+    MudDataGrid<DocumentInfo>? _dataGrid;
+    List<DocumentInfo> _results = new List<DocumentInfo>();
+    HashSet<DocumentInfo> _selected = new HashSet<DocumentInfo>();
+    bool _isLoading = true;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (SubscriptionId != Guid.Empty && UserId != Guid.Empty)
+        {
+            await OnViewModeChanged(_viewMode);
+        }
+    }
+
+    private async Task OnViewModeChanged(ViewMode mode)
+    {
+        _isLoading = true;
+        StateHasChanged();
+        _viewMode = mode;
+        // Handle view mode change logic here
+        if (_viewMode == ViewMode.Pinned)
+        {
+            _results = await _fileProvider.GetPinnedItemsAsync(UserId, SubscriptionId, _cts.Token);
+            // Load pinned items
+        }
+        else if (_viewMode == ViewMode.Recent)
+        {
+            _results = [];
+            // Load recent items
+        }
+        _isLoading = false;
+        StateHasChanged();
+    }
+
+    private async Task RowClicked(DataGridRowClickEventArgs<DocumentInfo> args)
+    {
+        var item = args.Item;
+        // Handle the row click event, e.g., navigate to the file details page
+        if (item.IsContainer)
+        {
+            // Navigate to Container view
+            _navigationManager.NavigateTo($"/view/1/{item.Id}");
+        }
+        else
+        {
+            // Open or download the file
+        }
+    }
+
+    async Task RemoveSelectedPinnedItemsAsync()
+    {
+        await _fileProvider.UnpinAsync(UserId, SubscriptionId, _selected.Select(x => new PinRequest { ReferenceId = x.Id, Entity = x.IsContainer ? EntityType.Container : EntityType.Document }).ToList());
+        _selected.Clear();
+        await OnViewModeChanged(_viewMode);
+    }
+
+    enum ViewMode
+    {
+        Pinned,
+        Recent
+    }
 }
 

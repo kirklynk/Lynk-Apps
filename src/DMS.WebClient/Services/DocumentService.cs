@@ -1,4 +1,5 @@
 ﻿using DMS.WebClient.Models;
+using Microsoft.JSInterop;
 using Shared.Common.Interfaces;
 using Shared.Models;
 using System.Net.Http.Json;
@@ -15,6 +16,7 @@ namespace DMS.WebClient.Services
             logger.LogDebug("Creating container {ContainerName}", Container.Name);
 
             using var response = await _httpClient.PostAsJsonAsync($"/dms/api/users/{userId}/subscriptions/{subscriptionId}/documents/containers", Container, token);
+            
             try
             {
                 response.EnsureSuccessStatusCode();
@@ -23,10 +25,9 @@ namespace DMS.WebClient.Services
             }
             catch (HttpRequestException hre)
             {
-                //var content = await response.Content.ReadFromJsonAsync<ProblemDetail>();
-                //logger.LogError("Error creating container {ContainerName}: {ErrorDetail}", Container.Name, content?.Detail ?? hre.Message);
-                //throw new ApplicationException(content?.Detail ?? hre.Message, hre);
-                throw;
+                var content = await response.Content.ReadAsStringAsync();
+                logger.LogError("Error creating container {ContainerName}: {ErrorDetail}", Container.Name, content ?? hre.Message);
+                throw new ApplicationException(content ?? hre.Message, hre);
             }
             catch (Exception)
             {
@@ -46,7 +47,7 @@ namespace DMS.WebClient.Services
             response.EnsureSuccessStatusCode();
         }
 
-        public async Task<DocumentInfo?> GetDocumentDetailsAsync(Guid userId, Guid subscriptionId, Guid ContainerId, CancellationToken token = default)
+        public async Task<DocumentInfo?> GetDetailsAsync(Guid userId, Guid subscriptionId, Guid ContainerId, CancellationToken token = default)
         {
             using var response = await _httpClient.GetAsync($"/dms/api/users/{userId}/subscriptions/{subscriptionId}/documents/containers/{ContainerId}/details", token);
             response.EnsureSuccessStatusCode();
@@ -131,19 +132,19 @@ namespace DMS.WebClient.Services
 
         public async Task PinAsync(Guid userId, Guid subscriptionId, PinRequest pin)
         {
-            var response = await _httpClient.PostAsJsonAsync($"/dms/api/users/{userId}/subscriptions/{subscriptionId}/documents/pin", pin);
+            var response = await _httpClient.PostAsJsonAsync($"/dms/api/users/{userId}/subscriptions/{subscriptionId}/documents/pinned/add", pin);
             response.EnsureSuccessStatusCode();
         }
 
-        public async Task UnpinAsync(Guid userId, Guid subscriptionId, PinRequest pin)
+        public async Task UnpinAsync(Guid userId, Guid subscriptionId, List<PinRequest> pin)
         {
-            var response = await _httpClient.PostAsJsonAsync($"/dms/api/users/{userId}/subscriptions/{subscriptionId}/documents/unpin", pin);
+            var response = await _httpClient.PostAsJsonAsync($"/dms/api/users/{userId}/subscriptions/{subscriptionId}/documents/pinned/remove", pin);
             response.EnsureSuccessStatusCode();
         }
 
-        public async Task<List<DocumentInfo>> GetPinnedDocumentsAsync(Guid userId, Guid subscriptionId, CancellationToken token = default)
+        public async Task<List<DocumentInfo>> GetPinnedItemsAsync(Guid userId, Guid subscriptionId, CancellationToken token = default)
         {
-            var response = await _httpClient.GetAsync($"/dms/api/users/{userId}/subscriptions/{subscriptionId}/documents/pins", token);
+            var response = await _httpClient.GetAsync($"/dms/api/users/{userId}/subscriptions/{subscriptionId}/documents/pinned", token);
             response.EnsureSuccessStatusCode();
             return await response.Content.ReadFromJsonAsync<List<DocumentInfo>>(token) ?? new List<DocumentInfo>();
         }

@@ -12,7 +12,7 @@ namespace Shared.Common.Interfaces
         Task<QuerySet<DocumentInfo>> QueryContentAsync(Guid userId, Guid subscriptionId, Guid? ContainerId = null, int skip = 0, int take = 10, string? search = "",
             string? orderBy = null, bool descending = false, CancellationToken cancellationToken = default);
 
-        Task<DocumentInfo?> GetDocumentDetailsAsync(Guid userId, Guid subscriptionId, Guid ContainerId, CancellationToken token = default);
+        Task<DocumentInfo?> GetDetailsAsync(Guid userId, Guid subscriptionId, Guid ContainerId, CancellationToken token = default);
 
         Task DeleteAsync(Guid userId, Guid subscriptionId, Guid referenceId, CancellationToken token = default);
 
@@ -26,8 +26,9 @@ namespace Shared.Common.Interfaces
 
         Task PinAsync(Guid userId, Guid subscriptionId, PinRequest pin);
 
-        Task UnpinAsync(Guid userId, Guid subscriptionId, PinRequest pin);
+        Task UnpinAsync(Guid userId, Guid subscriptionId, List<PinRequest> pin);
 
-        Task<List<DocumentInfo>> GetPinnedDocumentsAsync(Guid userId, Guid subscriptionId, CancellationToken token = default);
+        Task<List<DocumentInfo>> GetPinnedItemsAsync(Guid userId, Guid subscriptionId, CancellationToken token = default);
+
     }
 }

@@ -13,7 +13,7 @@ namespace DocumentManagementService.Domain
         public virtual LynkContainer? Container { get; set; }
 
         [Required]
-        public Guid SubscriptionId { get; set; }
+        public Guid UserSubscriptionId { get; set; }
 
         public DateTime? ModifiedOn { get; set; }
 
@@ -29,8 +29,6 @@ namespace DocumentManagementService.Domain
         [Required]
         public string? Extension { get;  set; }
 
-        [Required]
-        public Guid UserId { get; set; }
-
+        public long? Size { get; set; }
     }
 }

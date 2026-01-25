@@ -18,14 +18,14 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 
-builder.WebHost.ConfigureKestrel(options=>
+builder.WebHost.ConfigureKestrel(options =>
 {
     options.Limits.MaxRequestBodySize = null; //unlimited
 });
 
 builder.Services.Configure<FormOptions>(options =>
 {
-    options.MultipartBodyLengthLimit = int.MaxValue; 
+    options.MultipartBodyLengthLimit = int.MaxValue;
 });
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -40,34 +40,11 @@ builder.Services.AddDefaultIdentity<User>(options => options.SignIn.RequireConfi
 
 // YARP: add the reverse proxy services
 builder.Services.AddReverseProxy()
-    .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
-    //.AddTransforms(context =>
-    //{
-    //    // Mark requests as coming from the trusted gateway
-    //    context.AddRequestTransform(ctx =>
-    //    {
-    //        ctx.ProxyRequest.Headers.Add("X-Gateway-Auth", "true");
-    //        return ValueTask.CompletedTask;
-    //    });
-    //});
-
-builder.Services.AddAuthorizationBuilder()
-    .AddPolicy("Dms", policy =>
-{
-    //policy.RequireRole("Admin");
-    policy.RequireAuthenticatedUser();
-});
-
-builder.Services.AddRateLimiter(options =>
-{
-    options.AddFixedWindowLimiter("dms-rate-limiter", config =>
+    .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
+    .AddTransforms(context =>
     {
-        config.PermitLimit = 10;
-        config.Window = TimeSpan.FromMinutes(1);
-        config.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
-        config.QueueLimit = 2;
+        context.Route.WithTransformPathRouteValues(new PathString("/dms"));
     });
-});
 
 builder.Services.AddCors(options =>
 {

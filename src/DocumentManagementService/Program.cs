@@ -1,5 +1,7 @@
 using DocumentManagementService.Data;
 using DocumentManagementService.Domain;
+using DocumentManagementService.Exceptions;
+using DocumentManagementService.Services;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
@@ -37,9 +39,13 @@ builder.Services.AddDbContextPool<ApplicationDbContext>(o =>
 {
     o.UseSqlServer(builder.Configuration.GetConnectionString("DmsDbConnection"));
 });
-builder.Services.AddScoped<IDocumentService, DocumentManagementService.Services.DocumentService>();
+builder.Services.AddScoped<IApiDocumentService, DocumentManagementService.Services.DocumentService>();
 builder.Services.AddScoped<ISharingService, DocumentManagementService.Services.SharingService>();
 builder.Services.AddHttpContextAccessor();
+
+builder.Services.AddKeyedScoped<IFileStorageService, DocumentManagementService.Services.DiskFileStorageService>("DiskFileStorage");
+builder.Services.AddKeyedScoped<IFileStorageService, DocumentManagementService.Services.AWSS3FileStorageService>("AWSS3FileStorage");
+builder.Services.AddKeyedScoped<IFileStorageService, DocumentManagementService.Services.AzureBlobFileStorageService>("IAzureBlobFileStorage");
 
 builder.Services.AddOutputCache(options =>
 {
@@ -85,9 +91,8 @@ app.Use(async (ctx, next) =>
 var documentApis = app.MapGroup("/api/users/{userId}/subscriptions/{subscriptionId}/documents");
 
 #region Document APIs
-
 /// Get root contents
-documentApis.MapGet("/", async ([FromServices] ApplicationDbContext dbContext, [FromServices] IDocumentService documentService, Guid subscriptionId, Guid userId, HttpRequest request, [FromQuery] bool descending = false, [FromQuery] string? search = null, [FromQuery] string orderBy = nameof(DocumentInfo.Name), [FromQuery] int skip = 0, [FromQuery] int take = 25, CancellationToken cancellationToken = default) =>
+documentApis.MapGet("/", async ([FromServices] IApiDocumentService documentService, Guid subscriptionId, Guid userId, HttpRequest request, [FromQuery] bool descending = false, [FromQuery] string? search = null, [FromQuery] string orderBy = nameof(DocumentInfo.Name), [FromQuery] int skip = 0, [FromQuery] int take = 25, CancellationToken cancellationToken = default) =>
 {
     try
     {
@@ -108,7 +113,7 @@ documentApis.MapGet("/", async ([FromServices] ApplicationDbContext dbContext, [
 }).Produces<QuerySet<Shared.Models.DocumentInfo>>();
 
 /// Get Container contents
-documentApis.MapGet("/containers/{id}", async ([FromServices] IDocumentService documentService, Guid subscriptionId, Guid id, Guid userId, HttpRequest request, [FromQuery] bool descending = false, [FromQuery] string? search = null, [FromQuery] string OrderBy = nameof(DocumentInfo.Name), [FromQuery] int skip = 0, [FromQuery] int take = 10, CancellationToken cancellationToken = default) =>
+documentApis.MapGet("/containers/{id}", async ([FromServices] IApiDocumentService documentService, Guid subscriptionId, Guid id, Guid userId, HttpRequest request, [FromQuery] bool descending = false, [FromQuery] string? search = null, [FromQuery] string OrderBy = nameof(DocumentInfo.Name), [FromQuery] int skip = 0, [FromQuery] int take = 10, CancellationToken cancellationToken = default) =>
 {
     if (skip < 0) skip = 0;
     if (take <= 0) take = 10;
@@ -120,9 +125,9 @@ documentApis.MapGet("/containers/{id}", async ([FromServices] IDocumentService d
 }).Produces<QuerySet<DocumentInfo>>();
 
 /// Get Container details
-documentApis.MapGet("/containers/{id}/details", async ([FromServices] IDocumentService documentService, Guid subscriptionId, Guid userId, Guid id) =>
+documentApis.MapGet("/containers/{id}/details", async ([FromServices] IApiDocumentService documentService, Guid subscriptionId, Guid userId, Guid id) =>
 {
-    var container = await documentService.GetDocumentDetailsAsync(userId, subscriptionId, id);
+    var container = await documentService.GetDetailsAsync(userId, subscriptionId, id);
 
     if (container == null)
     {
@@ -134,7 +139,7 @@ documentApis.MapGet("/containers/{id}/details", async ([FromServices] IDocumentS
 }).Produces<DocumentInfo>();
 
 /// Get recycle bin contents
-documentApis.MapGet("/recyclebin", async ([FromServices] IDocumentService documentService, Guid subscriptionId, Guid userId, HttpRequest request, [FromQuery] bool descending = false, [FromQuery] string? search = null, [FromQuery] string OrderBy = nameof(DocumentInfo.Name), [FromQuery] int skip = 0, [FromQuery] int take = 25, CancellationToken cancellationToken = default) =>
+documentApis.MapGet("/recyclebin", async ([FromServices] IApiDocumentService documentService, Guid subscriptionId, Guid userId, HttpRequest request, [FromQuery] bool descending = false, [FromQuery] string? search = null, [FromQuery] string OrderBy = nameof(DocumentInfo.Name), [FromQuery] int skip = 0, [FromQuery] int take = 25, CancellationToken cancellationToken = default) =>
 {
     if (skip < 0) skip = 0;
     if (take <= 0) take = 10;
@@ -151,7 +156,7 @@ documentApis.MapGet("/recyclebin", async ([FromServices] IDocumentService docume
 
 
 //Soft delete item
-documentApis.MapDelete("/{id}", async ([FromServices] IDocumentService documentService, Guid subscriptionId, Guid userId, Guid id, CancellationToken cancellationToken = default) =>
+documentApis.MapDelete("/{id}", async ([FromServices] IApiDocumentService documentService, Guid subscriptionId, Guid userId, Guid id, CancellationToken cancellationToken = default) =>
 {
     if (id == Guid.Empty)
     {
@@ -169,26 +174,26 @@ documentApis.MapDelete("/{id}", async ([FromServices] IDocumentService documentS
 });
 
 /// Create a new Container
-documentApis.MapPost("/containers", async ([FromServices] ApplicationDbContext dbContext, [FromServices] IDocumentService documentService, Guid subscriptionId, Guid userId, CreateContainer request, CancellationToken cancellationToken, ILogger<Program> logger) =>
+documentApis.MapPost("/containers", async ([FromServices] IApiDocumentService documentService, Guid subscriptionId, Guid userId, CreateContainer request, CancellationToken cancellationToken, ILogger<Program> logger) =>
 {
     if (string.IsNullOrWhiteSpace(request.Name))
     {
         return Results.BadRequest("Container name is required.");
     }
+
     try
     {
-        var found = await dbContext.Containers.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.Name == request.Name.Trim() && x.UserId == userId && x.SubscriptionId == subscriptionId && (x.ParentId == null || (request.ParentId.HasValue && x.ParentId == request.ParentId.Value)));
-
-        if (found != null)
-        {
-            if (found.IsDeleted)
-            {
-                return Results.Problem("Cannot create a new {{Container}}+ with the same name as a deleted one.", statusCode: StatusCodes.Status410Gone);
-            }
-            return Results.Problem("A Container with the same name already exists.", statusCode: StatusCodes.Status409Conflict);
-        }
-
         return Results.Ok(await documentService.CreateContainerAsync(userId, subscriptionId, request, cancellationToken));
+    }
+    catch (ExistingException ex)
+    {
+        logger.LogError(ex, "Container creation failed due to existing container for subscription {SubscriptionId}", subscriptionId);
+        return Results.Conflict("A container with the same name already exists.");
+    }
+    catch (DeletedException ex)
+    {
+        logger.LogError(ex, "Container creation failed due to deleted container for subscription {SubscriptionId}", subscriptionId);
+        return Results.Conflict("A container with the same name was previously deleted. Please restore it from the recycle bin or choose a different name.");
     }
     catch (Exception ex)
     {
@@ -198,7 +203,7 @@ documentApis.MapPost("/containers", async ([FromServices] ApplicationDbContext d
 }).Produces<DocumentInfo>()
     .ProducesProblem(StatusCodes.Status500InternalServerError);
 
-documentApis.MapPost("/recyclebin/empty", async ([FromServices] IDocumentService documentService, Guid subscriptionId, Guid userId, ILogger<Program> logger) =>
+documentApis.MapPost("/recyclebin/empty", async ([FromServices] IApiDocumentService documentService, Guid subscriptionId, Guid userId, ILogger<Program> logger) =>
 {
     if (subscriptionId == Guid.Empty)
     {
@@ -218,7 +223,7 @@ documentApis.MapPost("/recyclebin/empty", async ([FromServices] IDocumentService
 
 });
 
-documentApis.MapPost("/recyclebin/restore", async ([FromServices] IDocumentService documentService, [FromRoute] Guid subscriptionId, [FromRoute] Guid userId, [FromBody] RecycleBinItem model) =>
+documentApis.MapPost("/recyclebin/restore", async ([FromServices] IApiDocumentService documentService, [FromRoute] Guid subscriptionId, [FromRoute] Guid userId, [FromBody] RecycleBinItem model) =>
 {
     if (model.Items == null || !model.Items.Any())
     {
@@ -230,7 +235,7 @@ documentApis.MapPost("/recyclebin/restore", async ([FromServices] IDocumentServi
     return Results.Ok();
 });
 
-documentApis.MapPost("/recyclebin/purge", async ([FromServices] IDocumentService documentService, Guid subscriptionId, [FromRoute] Guid userId, [FromBody] RecycleBinItem model, ILogger<Program> logger) =>
+documentApis.MapPost("/recyclebin/purge", async ([FromServices] IApiDocumentService documentService, Guid subscriptionId, [FromRoute] Guid userId, [FromBody] RecycleBinItem model, ILogger<Program> logger) =>
 {
     if (model.Items == null || !model.Items.Any())
     {
@@ -242,58 +247,34 @@ documentApis.MapPost("/recyclebin/purge", async ([FromServices] IDocumentService
     return Results.Ok();
 });
 
-documentApis.MapPost("/upload/stream", async ([FromServices] ApplicationDbContext dbContext, [FromForm] IFormFile file, Guid subscriptionId, [FromRoute] Guid userId, [FromForm] string container) =>
+documentApis.MapPost("/upload/stream", async ([FromServices] IApiDocumentService documentService, [FromServices] IServiceProvider provider, [FromForm] IFormFile file, Guid subscriptionId, [FromRoute] Guid userId, [FromForm] string container, CancellationToken token = default) =>
 {
+    var p = provider.GetRequiredKeyedService<IFileStorageService>("DiskFileStorage");
 
     var fileName = Uri.UnescapeDataString(file.FileName);
-
-    var friendlyName = Path.GetFileNameWithoutExtension(fileName).Trim();
+    var fileNameNoExtension = Path.GetFileNameWithoutExtension(fileName).Trim();
     var extension = Path.GetExtension(fileName);
-    int index = 0;
 
-    var query = dbContext.Documents.Where(x => x.SubscriptionId == subscriptionId && x.UserId == userId).AsQueryable();
+    var path = await p.SaveFileAsync(file, token);
 
-    if (Guid.TryParse(container, out var containerId))
-    {
-        query = query.Where(x => x.ContainerId == containerId);
-    }
+    var document = await documentService.AddDocumentAsync(userId, subscriptionId, fileNameNoExtension, extension, container, path, file.ContentType, file.Length, token);
 
-    while (await query.Where(x => x.Name == friendlyName).AnyAsync())
-    {
-        friendlyName = $"{Path.GetFileNameWithoutExtension(fileName)} ({++index})";
-    }
-
-    var d = Directory.CreateDirectory("c:\\temp\\uploads");
-    var name = $"{Guid.NewGuid()}{extension}";
-    var path = Path.Combine(d.FullName, name);
-
-    await using var fs = new FileStream(
-        path,
-        FileMode.Create,
-        FileAccess.Write,
-        FileShare.None,
-        bufferSize: 1024 * 1024,
-        useAsync: true);
-    app.Logger.LogError("Starting file upload: {FileName} to {Path}", fileName, path);
-    app.Logger.LogError("Request Body Length: {Length}", file.Length);
-
-    await file.CopyToAsync(fs);
-
-    await dbContext.Documents.AddAsync(new LynkDocument(friendlyName)
-    {
-        Id = Guid.NewGuid(),
-        ContainerId = containerId == Guid.Empty ? null : containerId,
-        Location = Path.Combine(d.FullName, name),
-        SubscriptionId = subscriptionId,
-        ModifiedOn = DateTime.UtcNow,
-        Type = file.ContentType,
-        UserId = userId,
-        Extension = extension
-    });
-
-    await dbContext.SaveChangesAsync();
+    return Results.Ok(document);
 
 }).DisableAntiforgery();
+
+documentApis.MapGet("/{id}/download", async ([FromServices] IApiDocumentService documentService, [FromServices] IServiceProvider provider, Guid subscriptionId, Guid userId, Guid id, CancellationToken token = default) =>
+{
+    var fileStorageService = provider.GetRequiredKeyedService<IFileStorageService>("DiskFileStorage");
+
+    var doc = await documentService.GetAsync(userId, subscriptionId, id, token);
+    if (doc == null)
+    {
+        return Results.NotFound();
+    }
+    Stream stream = await fileStorageService.GetStreamAsync(doc.Location, token);
+    return Results.File(stream, doc.Type ?? "application/octet-stream", doc.Name + doc.Extension);
+});
 #endregion
 
 #region Shares logic APIs
@@ -361,19 +342,20 @@ documentApis.MapGet("/shares", async ([FromServices] ISharingService sharingServ
 #endregion
 
 #region Pinned Apis
-documentApis.MapGet("/pinned", async ([FromServices] IDocumentService documentService, [FromRoute] Guid subscriptionId, [FromRoute] Guid userId) =>
+documentApis.MapGet("/pinned", async ([FromServices] IApiDocumentService documentService, [FromRoute] Guid subscriptionId, [FromRoute] Guid userId) =>
 {
-    var result = await documentService.GetPinnedDocumentsAsync(userId, subscriptionId);
+
+    var result = await documentService.GetPinnedItemsAsync(userId, subscriptionId);
     return Results.Ok(result);
 });
 
-documentApis.MapPost("/pin", async ([FromServices] IDocumentService documentService, Guid subscriptionId, [FromRoute] Guid userId, [FromBody] PinRequest model) =>
+documentApis.MapPost("/pinned/add", async ([FromServices] IApiDocumentService documentService, Guid subscriptionId, [FromRoute] Guid userId, [FromBody] PinRequest model) =>
 {
     await documentService.PinAsync(userId, subscriptionId, model);
     return Results.Ok();
 });
 
-documentApis.MapPost("/unpin", async ([FromServices] IDocumentService documentService, Guid subscriptionId, [FromRoute] Guid userId, [FromBody] PinRequest model) =>
+documentApis.MapPost("/pinned/remove", async ([FromServices] IApiDocumentService documentService, Guid subscriptionId, [FromRoute] Guid userId, [FromBody] List<PinRequest> model) =>
 {
     await documentService.UnpinAsync(userId, subscriptionId, model);
     return Results.Ok();

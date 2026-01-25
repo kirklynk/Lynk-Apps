@@ -10,7 +10,7 @@ namespace DocumentManagementService.Domain
         public string Name { get; set; } = string.Empty;
       
         [Required]
-        public Guid SubscriptionId { get; set; }
+        public Guid UserSubscriptionId { get; set; }
 
         public Guid? ParentId { get; set; }
 
@@ -22,9 +22,6 @@ namespace DocumentManagementService.Domain
         public bool IsDeleted { get; set; } = false;
 
         public DateTime? DeletedOn { get;  set; }
-
-        [Required]
-        public Guid UserId { get; set; }
 
         public virtual ICollection<LynkShare> Shares { get; set; } = new HashSet<LynkShare>();
 

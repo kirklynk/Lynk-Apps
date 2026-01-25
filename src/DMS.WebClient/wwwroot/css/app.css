@@ -95,7 +95,7 @@ code {
 }
 
 body {
-    overflow-y: hidden;
+    overflow-y: auto;
 }
 
 html, body, #app {
@@ -104,7 +104,14 @@ html, body, #app {
     padding: 0;
 }
 
+.mud-table-cell {
+    border: none !important;
+}
 
+.mud-table-body > .mud-table-row:hover {
+    cursor: pointer;
+    background-color: var(--mud-palette-table-hover) !important;
+}
 
 :root {
     --mud-palette-black: rgba(39,44,52,1);
@@ -319,4 +326,8 @@ html, body, #app {
     --mud-zindex-snackbar: 1500;
     --mud-zindex-tooltip: 1600;
     --mud-native-html-color-scheme: light;
+}
+
+.mud-main-content {
+    height: 100% !important;
 }

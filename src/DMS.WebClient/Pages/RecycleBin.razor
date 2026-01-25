@@ -2,25 +2,27 @@
 @inject ILogger<RecycleBin> _logger
 @implements IDisposable
 
-<MudPaper Elevation="0" Style="margin-bottom: 5px;">
-    <MudBreadcrumbs Items="@([new BreadcrumbItem("", href: "/", icon: Icons.Material.Filled.Home), new BreadcrumbItem("Recycle Bin", href: "/view/3", disabled: true)])"></MudBreadcrumbs>
-    <MudText Style="font-size: 2rem; padding-left: 10px;">Recycle Bin</MudText>
-</MudPaper>
+<PageHeader Title="@Title">
+    <HeaderContent>
+        <MudBreadcrumbs Items="@([new BreadcrumbItem("", href: "/", icon: Icons.Material.Filled.Home), new BreadcrumbItem(Title, href: "/view/3", disabled: true)])"></MudBreadcrumbs>
+        <MudText Style="font-size: 2rem; padding-left: 10px;">@Title</MudText>
+    </HeaderContent>
+    <ChildContent>
+        <MudStack Row="true" Class="fullwidth" Style="width: 100%;" Gap="2">
+            @if (_selected.Count == 0)
+            {
+                <MudButton Variant="Variant.Text" Color="Color.Error" DropShadow="true" OnClick="EmptyRecycleBinAsync" StartIcon="@Icons.Material.Outlined.Warning" Disabled="_isEmpty">Empty Recycle Bin</MudButton>
+            }
+            else
+            {
+                <MudButton Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.Restore" DropShadow="true" OnClick="@(async () => await RestorePurgeAsync(new RecycleBinItem() { Items = _selected.Select(x => x.Id).ToList() }))">Restore</MudButton>
+                <MudButton Variant="Variant.Text" Color="Color.Error" StartIcon="@Icons.Material.Outlined.DeleteForever" DropShadow="true" OnClick="@(async () => await RestorePurgeAsync(new RecycleBinItem() { Items = _selected.Select(x => x.Id).ToList() }, true))">Delete</MudButton>
+            }
+        </MudStack>
+    </ChildContent>
+</PageHeader>
 
-<p class="mb-4">
-    <MudStack Row="true" Class="fullwidth" Style="width: 100%;" Gap="2">
-        <MudButton Variant="Variant.Filled" Color="Color.Error" DropShadow="true" OnClick="EmptyRecycleBinAsync" StartIcon="@Icons.Material.Outlined.Warning" Disabled="_isEmpty">Empty recycle bin</MudButton>
-
-        @if (_selected.Count > 0)
-        {           
-            <MudButton Variant="Variant.Text" Color="Color.Error" StartIcon="@Icons.Material.Outlined.DeleteForever" DropShadow="true" OnClick="@(async () => await RestorePurgeAsync(new RecycleBinItem() { Items = _selected.Select(x => x.Id).ToList() }, true))">Delete forever</MudButton>
-
-            <MudButton Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.Restore" DropShadow="true" OnClick="@(async () => await RestorePurgeAsync(new RecycleBinItem() { Items = _selected.Select(x => x.Id).ToList() }))">Restore</MudButton>
-        }
-    </MudStack>
-</p>
-
-<div>
+<div style="margin-top: 20px;">
     <MudDataGrid MultiSelection="true" T="DocumentInfo" Bordered="false" SelectedItems="_selected" FixedHeader="true" Virtualize="true" Outlined="false" ItemSize="20.0f" SortMode="SortMode.Single" Loading="@_isLoading" Height="500px" RowClass="row" VirtualizeServerData="GetDataAsync" @ref="_dataGrid" SelectOnRowClick="true" SelectedItemsChanged="@(() => StateHasChanged())" SelectedItemChanged="@(() => StateHasChanged())">
         <Columns>
             <SelectColumn ShowInHeader="false" />
@@ -91,6 +93,8 @@
     bool _isLoading = true;
     bool _isEmpty = true;
     HashSet<DocumentInfo> _selected = [];
+    string Title => "Recycle Bin";
+
     CancellationTokenSource _cts = new();
     async Task<GridData<DocumentInfo>> GetDataAsync(GridStateVirtualize<DocumentInfo> request, CancellationToken token)
     {

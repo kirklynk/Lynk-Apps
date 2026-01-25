@@ -1,20 +1,23 @@
 ﻿@page "/view/2"
 @inject ISharingService _sharingService
 
-<MudPaper Elevation="0" Style="margin-bottom: 5px;">
-    <MudBreadcrumbs Items="@([new BreadcrumbItem("", href: "/", icon: Icons.Material.Filled.Home), new BreadcrumbItem("Shared", href: "/view/2", disabled: true)])"></MudBreadcrumbs>
+<PageHeader Title="@Title">
+    <HeaderContent>
+        <MudBreadcrumbs Items="@([new BreadcrumbItem("", href: "/", icon: Icons.Material.Filled.Home), new BreadcrumbItem(Title, href: "/view/2", disabled: true)])"></MudBreadcrumbs>
+        <MudText Style="font-size: 2rem; padding-left: 10px;">@Title</MudText>
+    </HeaderContent>
+    <ChildContent>
+        <MudStack Row="true" Class="fullwidth" Style="width: 100%;" Gap="2">
+            <MudToggleGroup T="ShareViewMode" Color="Color.Primary" Style="max-width: 600px;" Outlined="false" Vertical="false" Delimiters="true">
+                <MudToggleItem Value="ShareViewMode.All" Text="All" />
+                <MudToggleItem Value="ShareViewMode.SharedByMe" Text="By me" />
+                <MudToggleItem Value="ShareViewMode.SharedWithMe" Text="With me" />
+            </MudToggleGroup>
+        </MudStack>
+    </ChildContent>
+</PageHeader>
 
-    <MudText Style="font-size: 2rem; padding-left: 10px;">Shared</MudText>
-</MudPaper>
-<div class="mt-4">
-    <MudStack>
-        <MudToggleGroup T="ShareViewMode" Color="Color.Primary" Style="max-width: 600px;" Outlined="false" Vertical="false" Delimiters="true">
-            <MudToggleItem Value="ShareViewMode.All" Text="All" />
-            <MudToggleItem Value="ShareViewMode.SharedByMe" Text="By me" />
-            <MudToggleItem Value="ShareViewMode.SharedWithMe" Text="With me" />
-        </MudToggleGroup>
-    </MudStack>
-</div>
+
 <div style="margin-top: 20px;">
     <MudDataGrid T="ShareRequest" Virtualize="true" FixedHeader="true" Outlined="false" ItemSize="20.0f" Height="400px" VirtualizeServerData="GetDataAsync">
         <Columns>
@@ -39,6 +42,8 @@
     [CascadingParameter(Name = "UserId")]
     public Guid UserId { get; set; }
 
+    string Title => "Shares";
+
     async Task<GridData<ShareRequest>> GetDataAsync(GridStateVirtualize<ShareRequest> state, CancellationToken cancellationToken)
     {
         try
@@ -59,6 +64,6 @@
                 Items = [],
                 TotalItems = 0
             };
-        }        
+        }
     }
 }
