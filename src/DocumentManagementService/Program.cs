@@ -53,7 +53,7 @@ builder.Services.AddOutputCache(options =>
         builder.Expire(TimeSpan.FromSeconds(10)));
 });
 
-//builder.Services.AddHostedService<DocumentManagementService.Services.CleanUpService>();
+builder.Services.AddHostedService<DocumentManagementService.Services.CleanUpService>();
 
 var app = builder.Build();
 
@@ -103,7 +103,7 @@ documentApis.MapGet("/", async ([FromServices] IApiDocumentService documentServi
 
         // var userName = request.HttpContext?.User.Identity?.Name;
 
-        var result = await documentService.QueryContentAsync(userId, subscriptionId, null, skip, take, search, orderBy, descending, cancellationToken);
+        var result = await documentService.QueryAsync(userId, subscriptionId, null, skip, take, search, orderBy, descending, cancellationToken);
         return Results.Ok(result);
     }
     catch (Exception)
@@ -118,7 +118,7 @@ documentApis.MapGet("/containers/{id}", async ([FromServices] IApiDocumentServic
     if (skip < 0) skip = 0;
     if (take <= 0) take = 10;
 
-    var results = await documentService.QueryContentAsync(userId, subscriptionId, id, skip, take, search, OrderBy, descending, cancellationToken);
+    var results = await documentService.QueryAsync(userId, subscriptionId, id, skip, take, search, OrderBy, descending, cancellationToken);
 
     return Results.Ok(results);
 
@@ -127,7 +127,7 @@ documentApis.MapGet("/containers/{id}", async ([FromServices] IApiDocumentServic
 /// Get Container details
 documentApis.MapGet("/containers/{id}/details", async ([FromServices] IApiDocumentService documentService, Guid subscriptionId, Guid userId, Guid id) =>
 {
-    var container = await documentService.GetDetailsAsync(userId, subscriptionId, id);
+    var container = await documentService.GetRelatedContainersAsync(userId, subscriptionId, id);
 
     if (container == null)
     {
@@ -188,12 +188,12 @@ documentApis.MapPost("/containers", async ([FromServices] IApiDocumentService do
     catch (ExistingException ex)
     {
         logger.LogError(ex, "Container creation failed due to existing container for subscription {SubscriptionId}", subscriptionId);
-        return Results.Conflict("A container with the same name already exists.");
+        return Results.Problem(detail: "A container with the same name already exists.", title: "Error", statusCode: 409);
     }
     catch (DeletedException ex)
     {
         logger.LogError(ex, "Container creation failed due to deleted container for subscription {SubscriptionId}", subscriptionId);
-        return Results.Conflict("A container with the same name was previously deleted. Please restore it from the recycle bin or choose a different name.");
+        return Results.Problem(detail: "A container with the same name was previously deleted. Please restore it from the recycle bin or choose a different name.", title:"Error", statusCode: 409);
     }
     catch (Exception ex)
     {

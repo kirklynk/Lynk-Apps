@@ -25,9 +25,9 @@ namespace DMS.WebClient.Services
             }
             catch (HttpRequestException hre)
             {
-                var content = await response.Content.ReadAsStringAsync();
-                logger.LogError("Error creating container {ContainerName}: {ErrorDetail}", Container.Name, content ?? hre.Message);
-                throw new ApplicationException(content ?? hre.Message, hre);
+                var content = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+                logger.LogError("Error creating container {ContainerName}: {ErrorDetail}", Container.Name, content?.Detail ?? hre.Message);
+                throw new ApplicationException(content?.Detail ?? hre.Message, hre);
             }
             catch (Exception)
             {
@@ -47,11 +47,11 @@ namespace DMS.WebClient.Services
             response.EnsureSuccessStatusCode();
         }
 
-        public async Task<DocumentInfo?> GetDetailsAsync(Guid userId, Guid subscriptionId, Guid ContainerId, CancellationToken token = default)
+        public async Task<List<ContainerInfo>> GetRelatedContainersAsync(Guid userId, Guid subscriptionId, Guid ContainerId, CancellationToken token = default)
         {
             using var response = await _httpClient.GetAsync($"/dms/api/users/{userId}/subscriptions/{subscriptionId}/documents/containers/{ContainerId}/details", token);
             response.EnsureSuccessStatusCode();
-            return await response.Content.ReadFromJsonAsync<DocumentInfo>(token);
+            return await response.Content.ReadFromJsonAsync<List<ContainerInfo>>(token) ?? new List<ContainerInfo>();
         }
 
         public async Task PurgeRecycleBinItemsAsync(Guid userId, Guid           subscriptionId, RecycleBinItem model, CancellationToken token = default)
@@ -61,7 +61,7 @@ namespace DMS.WebClient.Services
             response.EnsureSuccessStatusCode();
         }
 
-        public async Task<QuerySet<DocumentInfo>> QueryContentAsync(Guid userId, Guid subscriptionId, Guid? ContainerId = null, int skip = 0, int take = 10, string search = "", string? orderBy = null, bool descending = false, CancellationToken cancellationToken = default)
+        public async Task<QuerySet<DocumentInfo>> QueryAsync(Guid userId, Guid subscriptionId, Guid? ContainerId = null, int skip = 0, int take = 10, string search = "", string? orderBy = null, bool descending = false, CancellationToken cancellationToken = default)
         {
             logger.LogDebug("Querying documents in subscription {SubscriptionId} ContainerId: {ContainerId} Skip: {Skip} Take: {Take} Search: {Search} OrderBy: {OrderBy} Descending: {Descending}",
                 subscriptionId, ContainerId, skip, take, search, orderBy, descending);

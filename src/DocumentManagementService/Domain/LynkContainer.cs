@@ -14,6 +14,7 @@ namespace DocumentManagementService.Domain
 
         public Guid? ParentId { get; set; }
 
+
         public virtual LynkContainer? Parent { get; set; }
 
        
@@ -27,6 +28,6 @@ namespace DocumentManagementService.Domain
 
         public virtual ICollection<LynkContainer> Children { get; set; } = new HashSet<LynkContainer>();
 
-        public ICollection<LynkDocument> Documents { get; set; } = new HashSet<LynkDocument>();
+        public virtual ICollection<LynkDocument> Documents { get; set; } = new HashSet<LynkDocument>();
     }
 }

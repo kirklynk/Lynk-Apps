@@ -9,7 +9,7 @@ export function openFileInput(inputElement, containerId) {
 
 export function uploadAsync(inputElement, uploadUrl, dotNetHelper) {
     return new Promise(async (resolve) => {
-        await dotNetHelper.invokeMethodAsync('ResetProgress');
+        await dotNetHelper.invokeMethodAsync('resetProgress');
         const files = Array.from(inputElement.files);
         if (files.length === 0) {
             return;
@@ -22,7 +22,6 @@ export function uploadAsync(inputElement, uploadUrl, dotNetHelper) {
                 status: "Waiting",
                 progress: 0
             });
-
         });
 
         await dotNetHelper.invokeMethodAsync('onUploadStarted', uploadedFiles);
@@ -33,7 +32,7 @@ export function uploadAsync(inputElement, uploadUrl, dotNetHelper) {
 
             const selectedFile = files[index];
 
-            dotNetHelper.invokeMethodAsync('UpdateProgress', selectedFile.name, 'Uploading', 0);
+            dotNetHelper.invokeMethodAsync('updateProgress', selectedFile.name, 'Uploading', 0);
 
             const formData = new FormData();
 
@@ -41,10 +40,9 @@ export function uploadAsync(inputElement, uploadUrl, dotNetHelper) {
             formData.append("container", _containerId);
 
             xhr.upload.onprogress = (e) => {
-
                 if (e.lengthComputable) {
                     const percent = Math.round((e.loaded / e.total) * 100);
-                    dotNetHelper.invokeMethodAsync('UpdateProgress', selectedFile.name, 'Uploading', percent);
+                    dotNetHelper.invokeMethodAsync('updateProgress', selectedFile.name, 'Uploading', percent);
                 }
             };
 

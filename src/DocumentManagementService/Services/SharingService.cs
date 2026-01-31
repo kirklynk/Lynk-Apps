@@ -40,12 +40,21 @@ namespace DocumentManagementService.Services
                         Owner = share.Owner,
                         EntityType = share.EntityType,
                         ReferenceId = share.ReferenceId
-                    }
-                    );
+                    });
 
             var union = query.Union(sharedContainers);
-
+            
             var count = await union.CountAsync(cancellationToken);
+
+            //Adding pagination
+            union = orderBy?.ToLower() switch
+            {
+                "name" => !descending ? union.OrderBy(f => f.Name) : union.OrderByDescending(f => f.Name),
+                "owner" => !descending ? union.OrderBy(f => f.Owner) : union.OrderByDescending(f => f.Owner),
+                _ => union.OrderBy(f => f.Name)
+            };
+            union = union.Skip(skip).Take(take);
+
             return new QuerySet<ShareRequest>
             {
                 Items = await union.ToListAsync(cancellationToken),

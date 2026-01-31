@@ -151,7 +151,7 @@ else
 
     IJSObjectReference _uploader;
     DotNetObjectReference<ContentList>? objRef;
-    DocumentInfo? _container = null;
+    ContainerInfo? _container = null;
     MudMessageBox? _mudMessageBox;
 
     bool _isLoading = true;
@@ -167,29 +167,17 @@ else
         _container = null;
         _logger.LogInformation("OnParametersSetAsync called with ContainerId: {ContainerId}", ContainerId);
         _breadcrumbs = new() { new("", $"/", icon: Icons.Material.Filled.Home) };
+        _breadcrumbs.Add(new(_defaultTitle, $"/view/0", disabled: !ContainerId.HasValue));
+
         if (ContainerId.HasValue)
         {
-            _container = await _fileProvider.GetDetailsAsync(UserId, SubscriptionId, ContainerId.Value);
-            if (_container?.Parent != null)
+            var results = await _fileProvider.GetRelatedContainersAsync(UserId, SubscriptionId, ContainerId.Value);
+            _container = results.FirstOrDefault();
+            foreach (var container in results.Reverse<ContainerInfo>())
             {
-                if (_container.Parent.Parent != null)
-                {
-                    _breadcrumbs.Add(new("", $"/view/1/{_container.Parent.Parent.Id}", icon: Icons.Material.Filled.FirstPage));
-                }
-                else
-                {
-                    _breadcrumbs.Add(new("", $"/view/0", icon: Icons.Material.Filled.FirstPage));
-                }
-
-                _breadcrumbs.Add(new(_container.Parent.Name, $"/view/1/{_container.Parent.Id}"));
-
-            }
-            else
-            {
-                _breadcrumbs.Add(new(_defaultTitle, $"/view/0"));
+                _breadcrumbs.Add(new(container.Name, $"/view/1/{container.Id}", disabled: container.Id == _container?.Id));
             }
         }
-        _breadcrumbs.Add(new(Title, $"/view/0", disabled: true));
 
         if (_dataGrid != null)
         {
@@ -205,8 +193,6 @@ else
             _logger.LogInformation("OnAfterRenderAsync firstRender: {FirstRender}", firstRender);
             _uploader ??= await _jsRuntime.InvokeAsync<IJSObjectReference>("import", "./upload.js");
             objRef ??= DotNetObjectReference.Create(this);
-
-            // await _uploader.InvokeVoidAsync("initializeUploader", "lynk-file-upload", objRef);
         }
     }
 
@@ -239,7 +225,7 @@ else
                 sortBy = _dataGrid!.RenderedColumns.FirstOrDefault(c => c.PropertyName == sortBy)!.Title;
             }
 
-            var query = await _fileProvider.QueryContentAsync(UserId, SubscriptionId, ContainerId, request.StartIndex, request.Count, search: _search, orderBy: sortBy, descending: sort?.Descending ?? false, cancellationToken: token);
+            var query = await _fileProvider.QueryAsync(UserId, SubscriptionId, ContainerId, request.StartIndex, request.Count, search: _search, orderBy: sortBy, descending: sort?.Descending ?? false, cancellationToken: token);
 
             return new GridData<DocumentInfo>
             {
@@ -380,7 +366,7 @@ else
         StateHasChanged();
     }
 
-    [JSInvokable("UpdateProgress")]
+    [JSInvokable("updateProgress")]
     public async Task UpdateProgress(string file, string status, int? percentage)
     {
         var uploadInfo = _filesBeingUploaded.FirstOrDefault(f => f.Name == file);
@@ -408,7 +394,7 @@ else
     }
 
 
-    [JSInvokable("ResetProgress")]
+    [JSInvokable("resetProgress")]
     public async Task ResetProgress()
     {
         _filesBeingUploaded = [];

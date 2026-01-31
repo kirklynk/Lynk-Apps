@@ -1,13 +1,9 @@
-﻿using Azure.Core;
-using DocumentManagementService.Data;
+﻿using DocumentManagementService.Data;
 using DocumentManagementService.Domain;
 using DocumentManagementService.Exceptions;
 using Microsoft.EntityFrameworkCore;
 using Shared.Common.Enums;
-using Shared.Common.Interfaces;
 using Shared.Models;
-using System.Reflection.Metadata.Ecma335;
-using System.Threading;
 
 namespace DocumentManagementService.Services
 {
@@ -18,11 +14,17 @@ namespace DocumentManagementService.Services
 
             _logger.LogDebug("Creating container {ContainerName} for subscription {SubscriptionId}", container.Name, subscriptionId);
 
-
-
             var userSubscriptionId = await GetUserSubscriptionIdAsync(userId, subscriptionId, token);
 
-            var found = await dbContext.Containers.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.Name == container.Name.Trim() && x.UserSubscriptionId == userSubscriptionId && (x.ParentId == null || (container.ParentId.HasValue && x.ParentId == container.ParentId.Value)));
+            var found = await dbContext.Containers
+                .IgnoreQueryFilters()
+                .LeftJoin(dbContext.PendingPurge,
+                      c => c.Id,
+                      pp => pp.ReferenceId,
+                      (c, pp) => new { c, pp })
+                .Where(x => x.c.Name == container.Name.Trim() && x.c.UserSubscriptionId == userSubscriptionId && ((container.ParentId.HasValue && x.c.ParentId == container.ParentId.Value) || (!container.ParentId.HasValue && x.c.ParentId == null)) && ((x.pp == null && x.c.IsDeleted) || !x.c.IsDeleted))
+                .Select(x => x.c)
+                .FirstOrDefaultAsync();
 
             if (found != null)
             {
@@ -113,28 +115,15 @@ namespace DocumentManagementService.Services
             }
         }
 
-        public async Task<DocumentInfo?> GetDetailsAsync(Guid userId, Guid subscriptionId, Guid containerId, CancellationToken token = default)
+        public async Task<List<ContainerInfo>> GetRelatedContainersAsync(Guid userId, Guid subscriptionId, Guid containerId, CancellationToken token = default)
         {
             var userSubscriptionId = await GetUserSubscriptionIdAsync(userId, subscriptionId, token);
-            var container = await dbContext.Containers.Include(x => x.Parent).ThenInclude(x => x.Parent)
-                 .Where(x => x.Id == containerId && x.UserSubscriptionId == userSubscriptionId)
-                 .FirstOrDefaultAsync();
 
-            return container != null ? new DocumentInfo
-            {
-                Id = container.Id,
-                Name = container.Name,
-                Parent = container.Parent != null ? new DocumentInfo
-                {
-                    Id = container.Parent.Id,
-                    Name = container.Parent.Name,
-                    Parent = container.Parent.Parent != null ? new DocumentInfo
-                    {
-                        Id = container.Parent.Parent.Id,
-                        Name = container.Parent.Parent.Name
-                    } : null
-                } : null
-            } : null;
+            var query = await dbContext.Database.SqlQueryRaw<ContainerInfo>("EXEC sp_GetRelatedContainers {0}, {1}", containerId, userSubscriptionId)
+                .AsNoTracking()
+                .ToListAsync(cancellationToken: token);
+
+            return query;
         }
 
         public async Task PurgeRecycleBinItemsAsync(Guid userId, Guid subscriptionId, RecycleBinItem model, CancellationToken token = default)
@@ -154,7 +143,7 @@ namespace DocumentManagementService.Services
 
         }
 
-        public async Task<QuerySet<DocumentInfo>> QueryContentAsync(Guid userId, Guid subscriptionId, Guid? ContainerId = null, int skip = 0, int take = 10, string? search = "", string? orderBy = null, bool descending = false, CancellationToken token = default)
+        public async Task<QuerySet<DocumentInfo>> QueryAsync(Guid userId, Guid subscriptionId, Guid? ContainerId = null, int skip = 0, int take = 10, string? search = "", string? orderBy = null, bool descending = false, CancellationToken token = default)
         {
             var userSubscriptionId = await GetUserSubscriptionIdAsync(userId, subscriptionId, token);
 
@@ -211,17 +200,23 @@ namespace DocumentManagementService.Services
             var userSubscriptionId = await GetUserSubscriptionIdAsync(userId, subscriptionId, cancellationToken);
 
             var readyForPurge = dbContext.PendingPurge.IgnoreQueryFilters()
-            .Where(f => f.SubscriptionId == subscriptionId)
-            .Select(f => new { f.ReferenceId });
+            .Where(f => f.SubscriptionId == subscriptionId);
 
             var Containers = dbContext.Containers.IgnoreQueryFilters()
-                .Where(f => f.UserSubscriptionId == userSubscriptionId && f.ParentId == null && f.IsDeleted && !readyForPurge.Select(r => r.ReferenceId).Contains(f.Id))
-                .Select(f => new { f.Id, f.Name, IsContainer = true, f.DeletedOn, f.ModifiedOn });
+                .LeftJoin(readyForPurge,
+                    c => c.Id,
+                    pp => pp.ReferenceId,
+                    (c, pp) => new { c, pp })
+                .Where(f => f.c.UserSubscriptionId == userSubscriptionId && f.c.IsDeleted && f.pp == null)
+                .Select(f => new { f.c.Id, f.c.Name, IsContainer = true, f.c.DeletedOn, f.c.ModifiedOn });
 
-            var documents = dbContext.Documents
-            .IgnoreQueryFilters()
-            .Where(d => d.UserSubscriptionId == userSubscriptionId && d.IsDeleted && !readyForPurge.Select(r => r.ReferenceId).Contains(d.Id))
-                .Select(d => new { d.Id, d.Name, IsContainer = false, d.DeletedOn, d.ModifiedOn });
+            var documents = dbContext.Documents.IgnoreQueryFilters()
+                .LeftJoin(readyForPurge,
+                    c => c.Id,
+                    pp => pp.ReferenceId,
+                    (c, pp) => new { c, pp })
+            .Where(d => d.c.UserSubscriptionId == userSubscriptionId && d.c.IsDeleted && d.pp == null)
+                .Select(d => new { d.c.Id, d.c.Name, IsContainer = false, d.c.DeletedOn, d.c.ModifiedOn });
 
             var query = Containers.Union(documents);
 

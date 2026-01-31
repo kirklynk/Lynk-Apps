@@ -9,10 +9,10 @@ namespace Shared.Common.Interfaces
     {
         Task<DocumentInfo?> CreateContainerAsync(Guid userId, Guid subscriptionId, CreateContainer Container, CancellationToken token = default);
 
-        Task<QuerySet<DocumentInfo>> QueryContentAsync(Guid userId, Guid subscriptionId, Guid? ContainerId = null, int skip = 0, int take = 10, string? search = "",
+        Task<QuerySet<DocumentInfo>> QueryAsync(Guid userId, Guid subscriptionId, Guid? ContainerId = null, int skip = 0, int take = 10, string? search = "",
             string? orderBy = null, bool descending = false, CancellationToken cancellationToken = default);
 
-        Task<DocumentInfo?> GetDetailsAsync(Guid userId, Guid subscriptionId, Guid ContainerId, CancellationToken token = default);
+        Task<List<ContainerInfo>> GetRelatedContainersAsync(Guid userId, Guid subscriptionId, Guid ContainerId, CancellationToken token = default);
 
         Task DeleteAsync(Guid userId, Guid subscriptionId, Guid referenceId, CancellationToken token = default);
 
